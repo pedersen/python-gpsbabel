@@ -32,9 +32,6 @@ class GPSBabel(object):
         self.filters = {}
         self.charsets = {}
         self.readOpts()
-        self.infiles = {}
-        self.outfiles = {}
-        self.applyfilters = {}
         self.ini = ""
     
     def readOpts(self):
