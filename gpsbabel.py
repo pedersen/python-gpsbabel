@@ -1,5 +1,13 @@
 """
 This module is is the main module for GPSBabel. It is intended to be a complete Python interface, allowing easy mechanisms to the developer to control GPSBabel from within a Python application.
+
+I've got to add classes for the data
+types (track, route, waypoint, live tracking), and code that will read
+the gpx file and write a gpx file containing same classes, and then a
+couple more convenience methods, and the work is all done.
+
+helper methods: setInGpx, captureStdOut, gpxParse, getCurrentLoc
+classes: GPSData, Waypoint, Route, Track, LiveTracking
 """
 """
 Python-GPSBabel - Python wrapper for GPSBabel project
@@ -23,23 +31,19 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 import subprocess
 
 class GPSBabel(object):
-    def __init__(self):
-        gps = subprocess.Popen(["gpsbabel", "-V"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        version = gps.stdout.readlines()
-        if version != ['\n', 'GPSBabel Version 1.3.5\n', '\n']:
-            raise Exception('Unsupported version of GPSBabel installed. Aborting.')
-        self.ftypes = {}
-        self.filters = {}
-        self.charsets = {}
-        self.readOpts()
+    def __init__(self, loc="gpsbabel"):
+        self.gpsbabel = loc
         self.clearChainOpts()
-        self.stdindata = []
+        self.validateVersion()
+        self.readOpts()
     
-    def execCmd(self):
-        gps = subprocess.Popen(self.buildCmd(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    def execCmd(self, cmd=None):
+        if cmd is None: cmd = self.buildCmd()
+        gps = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         gps.stdin.writelines(self.stdindata)
         gps.stdin.close()
         output = gps.stdout.readlines()
+        if self.autoClear: self.clearChainOpts()
         return(output)
     
     actions = ['charset', 'infile', 'filter', 'outfile']
@@ -72,18 +76,31 @@ class GPSBabel(object):
         self.chain.append([{'action' : action, 'fmtfilter' : fmtfilter, 'fname' : fname}, opts])
         
     def clearChainOpts(self):
-        self.ini = ""
+        self.ini        = ""
         self.shortnames = False
         self.procRoutes = False
         self.procTrack  = False
         self.procWpts   = False
         self.procGps    = False
         self.smartIcons = True
-        self.chain = []
+        self.stdindata  = []
+        self.chain      = []
+        if not hasattr(self, "autoClear"): self.autoClear = True
     
+    def validateVersion(self):
+        gps = self.execCmd([self.gpsbabel, "-V"])
+        version = ""
+        for line in gps:
+            if line.strip() != "": version = "%s%s" % (version, line)
+        if version not in ['GPSBabel Version 1.3.5\n']:
+            raise Exception('Unsupported version of GPSBabel installed. Aborting.')
+        
     def readOpts(self):
+        self.ftypes = {}
+        self.filters = {}
+        self.charsets = {}
         ftype = ''
-        gps = subprocess.Popen(["gpsbabel", "-h"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        gps = subprocess.Popen([self.gpsbabel, "-h"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         mode = 0 # 0 == do nothing, 1 == file type, 2 === filter
         for line in gps.stdout.readlines():
             line = line.rstrip()
@@ -112,7 +129,7 @@ class GPSBabel(object):
                     ftype = line[:line.find(' ')].strip()
                     self.filters[ftype] = []
         charset = ''
-        gps = subprocess.Popen(["gpsbabel", "-l"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        gps = subprocess.Popen([self.gpsbabel, "-l"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         mode = 0 # 0 == do nothing, 1 == char set, 2 === char set alias
         for line in gps.stdout.readlines():
             line = line.rstrip()
