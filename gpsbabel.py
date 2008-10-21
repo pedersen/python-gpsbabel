@@ -32,7 +32,54 @@ class GPSBabel(object):
         self.filters = {}
         self.charsets = {}
         self.readOpts()
+        self.clearChainOpts()
+        self.stdindata = []
+    
+    def execCmd(self):
+        gps = subprocess.Popen(self.buildCmd(), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        gps.stdin.writelines(self.stdindata)
+        gps.stdin.close()
+        output = gps.stdout.readlines()
+        return(output)
+    
+    actions = ['charset', 'infile', 'filter', 'outfile']
+    def addAction(self, action, fmtfilter, opts={}, fname=None):
+        action = action.lower()
+        if action not in self.actions:
+            raise UnknownActionException("Error: Unknown action %s" % action)
+        if action in ['infile', 'outfile'] and fname == None:
+            raise MissingFilenameException('Error: Action %s requires a filename, and we have none' % action)
+        if action in ['infile', 'outfile']:
+            if not self.ftypes.has_key(fmtfilter):
+                raise MissingFilefmtException('Error: File format %s is unknown' % fmtfilter)
+            for key in opts.keys():
+                if not key in self.ftypes[fmtfilter]:
+                    raise InvalidOptionException('Error: File format %s has no such option %s' % (fmtfilter, key))
+        if action == 'filter':
+            if not self.filters.has_key(fmtfilter):
+                raise MissingFilterException('Error: Filter %s is unknown' % fmtfilter)
+            for key in opts.keys():
+                if not key in self.filters[fmtfilter]:
+                    raise InvalidOptionException('Error: Filter %s has no such option %s' % (fmtfilter, key))
+        if action == 'charset':
+            cfound = False
+            if not self.charsets.has_key(fmtfilter):
+                for key in self.charsets.keys():
+                    if fmtfilter in self.charsets[key]: cfound = True
+            else: cfound = True
+            if not cfound:
+                raise UnknownCharsetException('Error: Unknown character set %s' % fmtfilter)
+        self.chain.append([{'action' : action, 'fmtfilter' : fmtfilter, 'fname' : fname}, opts])
+        
+    def clearChainOpts(self):
         self.ini = ""
+        self.shortnames = False
+        self.procRoutes = False
+        self.procTrack  = False
+        self.procWpts   = False
+        self.procGps    = False
+        self.smartIcons = True
+        self.chain = []
     
     def readOpts(self):
         ftype = ''
@@ -74,6 +121,46 @@ class GPSBabel(object):
                 self.charsets[charset] = []
             if line.startswith('\t'):
                 self.charsets[charset].extend(filter(lambda x: len(x) > 0, map(lambda x: x.strip(), line.strip().split(','))))
+
+    def buildCmd(self):
+        cmd = ['gpsbabel', '-p']
+        cmd.append('""' if len(self.ini) == 0 else self.ini)
+        if self.shortnames:     cmd.append('-s')
+        if self.procRoutes:     cmd.append('-r')
+        if self.procTrack:      cmd.append('-t')
+        if self.procWpts:       cmd.append('-w')
+        if self.procGps:        cmd.append('-T')
+        if not self.smartIcons: cmd.append('-N')
+        for i in self.chain:
+            fmt    = i[0]
+            opts_d = i[1]
+            opts   = ",".join(map(lambda x: "%s=%s" % (x, opts_d[x]), opts_d.keys()))
+            if len(opts) > 0: opts = ",%s" % opts
+            if fmt['action'] == 'infile':
+                cmd.extend(['-i', '%s%s' % (fmt['fmtfilter'], opts)])
+                cmd.extend(['-f', fmt['fname']])
+            elif fmt['action'] == 'outfile':
+                cmd.extend(['-o', '%s%s' % (fmt['fmtfilter'], opts)])
+                cmd.extend(['-F', fmt['fname']])
+            elif fmt['action'] == 'filter':
+                cmd.extend(['-x', '%s%s' % (fmt['fmtfilter'], opts)])
+            elif fmt['action'] == 'charset':
+                cmd.extend(['-c', '%s%s' % (fmt['fmtfilter'], opts)])
+        self.clearChainOpts()
+        return cmd
+    
+class UnknownActionException(Exception):
+    pass
+class MissingFilenameException(Exception):
+    pass
+class MissingFilterException(Exception):
+    pass
+class MissingFilefmtException(Exception):
+    pass
+class InvalidOptionException(Exception):
+    pass
+class UnknownCharsetException(Exception):
+    pass
 
 if __name__ == "__main__":
     gps = GPSBabel()

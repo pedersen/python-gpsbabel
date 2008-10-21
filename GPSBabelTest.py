@@ -26,7 +26,7 @@ import os.path
 
 import gpsbabel
 
-class initTest(unittest.TestCase):
+class GPSBabelTest(unittest.TestCase):
     def setUp(self):
         self.gps = gpsbabel.GPSBabel()
     
@@ -36,23 +36,96 @@ class initTest(unittest.TestCase):
     def testInit(self):
         self.failUnless(self.gps != None)
     
+    def testClearChainOpts(self):
+        self.failUnless(self.gps.ini == "")
+        self.failUnless(self.gps.shortnames == False)
+        self.failUnless(self.gps.procRoutes == False)
+        self.failUnless(self.gps.procTrack  == False)
+        self.failUnless(self.gps.procWpts   == False)
+        self.failUnless(self.gps.procGps    == False)
+        self.failUnless(self.gps.smartIcons == True)
+        self.failUnless(self.gps.chain == [])
+        
     def testReadOpts(self):
         self.failUnless(self.gps.ftypes["garmin"] != None)
         self.failUnless(self.gps.filters["transform"] != None)
         self.failUnless(self.gps.charsets["ISO-8859-1"] != None)
     
-"""
-    gpsbabel [options] -i INTYPE -f INFILE [filter] -o OUTTYPE -F OUTFILE
-    gpsbabel [options] -i INTYPE -o OUTTYPE INFILE [filter] OUTFILE
-
-Options:
-    -p               Preferences file (gpsbabel.ini)
-    -s               Synthesize shortnames
-    -r               Process route information
-    -t               Process track information
-    -w               Process waypoint information [default]
-    -x filtername    Invoke filter (placed between inputs and output) 
-    -T               Process realtime tracking information
-    -c               Character set for next operation
-    -N               No smart icons on output
-"""
+    def testAddActionInvalid(self):
+        try:
+            self.gps.addAction('invalid', 'gpx', {}, None)
+            self.fail('No UnknownActionException Generated')
+        except gpsbabel.UnknownActionException:
+            pass
+        
+    def testAddActionFileInvalidFilename(self):
+        try:
+            self.gps.addAction('infile', 'gpx', {'foobarbaz': 'badoption'}, None)
+            self.fail('No MissingFilenameException Generated')
+        except gpsbabel.MissingFilenameException:
+            pass
+        
+    def testAddActionFileInvalidFormat(self):
+        try:
+            self.gps.addAction('infile', 'foobarbaz', {}, 'filename')
+            self.fail('No MissingFileFmtException Generated')
+        except gpsbabel.MissingFilefmtException:
+            pass
+        
+    def testAddActionFileInvalidOption(self):
+        try:
+            self.gps.addAction('infile', 'gpx', {'foobarbaz': 'badoption'}, 'filename')
+            self.fail('No InvalidOptionException Generated')
+        except gpsbabel.InvalidOptionException:
+            pass
+        
+    def testAddActionFilterInvalidFilter(self):
+        try:
+            self.gps.addAction('filter', 'foobarbaz')
+            self.fail('No MissingFilterException Generated')
+        except gpsbabel.MissingFilterException:
+            pass
+        
+    def testAddActionFilterInvalidOption(self):
+        try:
+            self.gps.addAction('filter', 'transform', {'foobarbaz' : 'invalid'})
+            self.fail('No InvalidOptionException Generated')
+        except gpsbabel.InvalidOptionException:
+            pass
+        
+    def testAddActionCharsetInvalid(self):
+        try:
+            self.gps.addAction('charset', 'foobarbaz')
+            self.fail('No UnknownCharsetException Generated')
+        except gpsbabel.UnknownCharsetException:
+            pass
+        
+    def testAddActionFileValid(self):
+        self.gps.addAction('infile', 'gpx', {'snlen': 6}, 'filename')
+        self.failUnless(len(self.gps.chain) == 1, "len(self.gps.chain) == %d" % len(self.gps.chain))
+        
+    def testAddActionFilterValid(self):
+        self.gps.addAction('filter', 'simplify', {'count' : 6})
+        self.failUnless(len(self.gps.chain) == 1, "len(self.gps.chain) == %d" % len(self.gps.chain))
+        
+    def testAddActionCharsetValidPrimary(self):
+        self.gps.addAction('charset', 'ISO-8859-1')
+        self.failUnless(len(self.gps.chain) == 1, "len(self.gps.chain) == %d" % len(self.gps.chain))
+        
+    def testAddActionCharsetValidAlias(self):
+        self.gps.addAction('charset', 'Latin-1')
+        self.failUnless(len(self.gps.chain) == 1, "len(self.gps.chain) == %d" % len(self.gps.chain))
+        
+    def testBuildCmd(self):
+        self.gps.addAction('charset', 'ISO-8859-1')
+        self.gps.addAction('infile', 'gpx', {}, '-')
+        self.gps.addAction('filter', 'simplify', {'count' : 6})
+        self.gps.addAction('outfile', 'gpx', {}, '-')
+        self.failUnless(self.gps.buildCmd() == ['gpsbabel','-p','""','-c','ISO-8859-1','-i','gpx','-f','-','-x','simplify,count=6','-o','gpx','-F','-'])
+                
+    def testExecCmd(self):
+        self.gps.addAction('charset', 'ISO-8859-1')
+        self.gps.addAction('infile', 'gpx', {}, '-')
+        self.gps.addAction('filter', 'simplify', {'count' : 6})
+        self.gps.addAction('outfile', 'gpx', {}, '-')
+        self.failUnless(self.gps.execCmd() == [])
