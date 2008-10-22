@@ -17,9 +17,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 
-"""
-@todo: Add full chain support, complete adding support for all options.
-"""
 import unittest
 import os
 import os.path
@@ -128,4 +125,53 @@ class GPSBabelTest(unittest.TestCase):
         self.gps.addAction('infile', 'gpx', {}, '-')
         self.gps.addAction('filter', 'simplify', {'count' : 6})
         self.gps.addAction('outfile', 'gpx', {}, '-')
-        self.failUnless(self.gps.execCmd() == [])
+        self.failUnless(self.gps.execCmd() == (None, []))
+        
+class GPXWaypointTest(unittest.TestCase):
+    def setUp(self):
+        self.wpt = gpsbabel.GPXWaypoint()
+    
+    def testToXmlMinimal(self):
+        self.failUnless(self.wpt.toXml('wpt') == '<wpt lat="None" lon="None"></wpt>')
+    
+    def testToXml(self):
+        self.wpt.name = "Test Wpt"
+        self.failUnless(self.wpt.toXml('wpt') == '<wpt lat="None" lon="None"><name>Test Wpt</name></wpt>')
+        
+class GPXRouteTest(unittest.TestCase):
+    def setUp(self):
+        self.rte = gpsbabel.GPXRoute()
+    
+    def testToXmlMinimal(self):
+        self.failUnless(self.rte.toXml('rte') == '<rte></rte>')
+    
+    def testToXml(self):
+        self.rte.name = "Test Route"
+        self.rte.rtepts.append(gpsbabel.GPXWaypoint())
+        self.failUnless(self.rte.toXml('rte') == '<rte><name>Test Route</name><rtept lat="None" lon="None"></rtept></rte>')
+
+class GPXTrackTest(unittest.TestCase):
+    def setUp(self):
+        self.trk = gpsbabel.GPXTrack()
+    
+    def testToXmlMinimal(self):
+        self.failUnless(self.trk.toXml('trk') == '<trk></trk>')
+    
+    def testToXml(self):
+        self.trk.name = "Test Track"
+        self.trk.trksegs.append(gpsbabel.GPXWaypoint())
+        self.failUnless(self.trk.toXml('trk') == '<trk><name>Test Track</name><trkseg><trkpt lat="None" lon="None"></trkpt></trkseg></trk>')
+       
+class GPXDataTest(unittest.TestCase):
+    def setUp(self):
+        self.gpx = gpsbabel.GPXData()
+        
+    def testToXmlMinimal(self):
+        self.failUnless(self.gpx.toXml() == '<gpx version="1.1" creator="Python GPSBabel"></gpx>')
+
+    def testToXml(self):
+        self.gpx.rtes.append(gpsbabel.GPXRoute())
+        self.gpx.wpts.append(gpsbabel.GPXWaypoint())
+        self.gpx.trk.append(gpsbabel.GPXTrack())
+        self.failUnless(self.gpx.toXml() == '<gpx version="1.1" creator="Python GPSBabel"><wpt lat="None" lon="None"></wpt><rte></rte><trk></trk></gpx>')
+        

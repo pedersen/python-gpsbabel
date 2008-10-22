@@ -6,8 +6,7 @@ types (track, route, waypoint, live tracking), and code that will read
 the gpx file and write a gpx file containing same classes, and then a
 couple more convenience methods, and the work is all done.
 
-helper methods: setInGpx, captureStdOut, gpxParse, getCurrentLoc
-classes: GPSData, Waypoint, Route, Track, LiveTracking
+helper methods: gpxParse, getCurrentLoc
 """
 """
 Python-GPSBabel - Python wrapper for GPSBabel project
@@ -29,6 +28,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 """
 
 import subprocess
+import xml.sax
+import xml.sax.handler
 
 class GPSBabel(object):
     def __init__(self, loc="gpsbabel"):
@@ -37,14 +38,25 @@ class GPSBabel(object):
         self.validateVersion()
         self.readOpts()
     
-    def execCmd(self, cmd=None):
+    def execCmd(self, cmd=None, parseOutput=True):
         if cmd is None: cmd = self.buildCmd()
         gps = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        gps.stdin.writelines(self.stdindata)
+        gps.stdin.write(self.stdindata)
         gps.stdin.close()
         output = gps.stdout.readlines()
         if self.autoClear: self.clearChainOpts()
-        return(output)
+        return(gps.returncode, output)
+    
+    def captureStdOut(self):
+        self.addAction('outfile', 'gpx', {}, '-')
+        
+    def setInGpx(self, gpx):
+        if isinstance(gpx, str):
+            self.stdindata = gpx
+        elif isinstance(gpx, GPXData):
+            self.stdindata = gpx.toXml()
+        else:
+            raise Exception("Unable to set stdin for gpsbabel. Aborting!")
     
     actions = ['charset', 'infile', 'filter', 'outfile']
     def addAction(self, action, fmtfilter, opts={}, fname=None):
@@ -83,12 +95,12 @@ class GPSBabel(object):
         self.procWpts   = False
         self.procGps    = False
         self.smartIcons = True
-        self.stdindata  = []
+        self.stdindata  = ""
         self.chain      = []
         if not hasattr(self, "autoClear"): self.autoClear = True
     
     def validateVersion(self):
-        gps = self.execCmd([self.gpsbabel, "-V"])
+        ret, gps = self.execCmd([self.gpsbabel, "-V"])
         version = ""
         for line in gps:
             if line.strip() != "": version = "%s%s" % (version, line)
@@ -100,9 +112,9 @@ class GPSBabel(object):
         self.filters = {}
         self.charsets = {}
         ftype = ''
-        gps = subprocess.Popen([self.gpsbabel, "-h"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ret, gps = self.execCmd([self.gpsbabel, "-h"])
         mode = 0 # 0 == do nothing, 1 == file type, 2 === filter
-        for line in gps.stdout.readlines():
+        for line in gps:
             line = line.rstrip()
             if line.strip() == 'File Types (-i and -o options):':
                 mode = 1
@@ -129,9 +141,9 @@ class GPSBabel(object):
                     ftype = line[:line.find(' ')].strip()
                     self.filters[ftype] = []
         charset = ''
-        gps = subprocess.Popen([self.gpsbabel, "-l"], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ret, gps = self.execCmd([self.gpsbabel, "-l"])
         mode = 0 # 0 == do nothing, 1 == char set, 2 === char set alias
-        for line in gps.stdout.readlines():
+        for line in gps:
             line = line.rstrip()
             if line.startswith('*'):
                 charset = line[line.find(' ')+1:]
@@ -166,6 +178,66 @@ class GPSBabel(object):
         self.clearChainOpts()
         return cmd
     
+class GPXData(object):
+    __slots__ = ['wpts', 'rtes', 'trk']
+    
+    def __init__(self):
+        self.wpts = []
+        self.rtes = []
+        self.trk  = []
+    
+    def toXml(self):
+        return '<gpx version="1.1" creator="Python GPSBabel">' + \
+               "".join(map(lambda x: x.toXml("wpt"), self.wpts)) + \
+               "".join(map(lambda x: x.toXml("rte"), self.rtes)) + \
+               "".join(map(lambda x: x.toXml("trk"), self.trk)) + \
+               '</gpx>'
+
+class GPXWaypoint(object):
+    __slots__ = ['lat', 'lon', 'ele', 'time', 'magvar', 'geoidheight', 'name', 'cmt', 'desc',
+                 'src', 'link', 'sym', 'type', 'fix', 'sat', 'hdop', 'vdop', 'pdop',
+                 'ageofdgpsdata', 'dgpsid']
+    
+    def __init__(self):
+        for i in self.__slots__:
+            setattr(self, i, None)
+    
+    def toXml(self, tag):
+        return '<%s lat="%s" lon="%s">' % (tag, str(self.lat), str(self.lon)) + \
+               "".join(map(lambda x: '<%s>%s</%s>' % (x, getattr(self, x), x), \
+                   filter(lambda x: x not in ['lat', 'lon'] and getattr(self, x) != None, self.__slots__))) + \
+               '</%s>' % (tag)
+
+class GPXRoute(object):
+    __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'rtepts']
+    
+    def __init__(self):
+        for i in self.__slots__:
+            setattr(self, i, None)
+        self.rtepts = []
+    
+    def toXml(self, tag):
+        return '<%s>' % (tag) + \
+               "".join(map(lambda x: '<%s>%s</%s>' % (x, getattr(self, x), x), \
+                   filter(lambda x: x not in ['rtepts'] and getattr(self, x) != None, self.__slots__))) + \
+               "".join(map(lambda x: x.toXml("rtept"), self.rtepts)) + \
+               '</%s>' % (tag)
+
+class GPXTrack(object):
+    __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'trksegs']
+    
+    def __init__(self):
+        for i in self.__slots__:
+            setattr(self, i, None)
+        self.trksegs = []
+    
+    def toXml(self, tag):
+        return '<%s>' % (tag) + \
+               "".join(map(lambda x: '<%s>%s</%s>' % (x, getattr(self, x), x), \
+                   filter(lambda x: x not in ['trksegs'] and getattr(self, x) != None, self.__slots__))) + \
+               "".join(map(lambda x: "<trkseg>%s</trkseg>" % x.toXml("trkpt"), self.trksegs)) + \
+               '</%s>' % (tag)
+
 class UnknownActionException(Exception):
     pass
 class MissingFilenameException(Exception):
@@ -179,5 +251,24 @@ class InvalidOptionException(Exception):
 class UnknownCharsetException(Exception):
     pass
 
+class GPXParser(xml.sax.handler.ContentHandler):
+    def __init__(self):
+        xml.sax.ContentHandler.__init__(self)
+        self.reset()
+    
+    def reset(self):
+        self.chdata = ""
+        self.read = False
+        
+    def startElement(self, name, attrs):
+        pass
+    
+    def characters(self, ch):
+        if self.read:
+            self.chdata = "%s%s" % (self.chdata, ch)
+    
+    def endElement(self, name):
+        pass
+        
 if __name__ == "__main__":
     gps = GPSBabel()
