@@ -124,10 +124,9 @@ class GPSBabelTest(unittest.TestCase):
                 
     def testExecCmd(self):
         self.gps.addAction('charset', 'ISO-8859-1')
-        self.gps.addAction('infile', 'gpx', {}, '-')
+        self.gps.setInGpx('<?xml version="1.0" encoding="UTF-8"?><gpx version="1.0" creator="GPSBabel - http://www.gpsbabel.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/0" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd"><time>2008-10-22T18:20:22Z</time><bounds minlat="40.735149952" minlon="-75.099566588" maxlat="40.744316652" maxlon="-75.088833310"/><wpt lat="40.735149952" lon="-75.088833310"><ele>-0.114380</ele><name>GC187W</name><cmt>GC187W</cmt><desc>GC187W</desc><sym>Waypoint</sym></wpt></gpx>')
         self.gps.addAction('filter', 'simplify', {'count' : 6})
         self.gps.addAction('outfile', 'gpx', {}, '-')
-        self.gps.setInGpx('<?xml version="1.0" encoding="UTF-8"?><gpx version="1.0" creator="GPSBabel - http://www.gpsbabel.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/0" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd"><time>2008-10-22T18:20:22Z</time><bounds minlat="40.735149952" minlon="-75.099566588" maxlat="40.744316652" maxlon="-75.088833310"/><wpt lat="40.735149952" lon="-75.088833310"><ele>-0.114380</ele><name>GC187W</name><cmt>GC187W</cmt><desc>GC187W</desc><sym>Waypoint</sym></wpt></gpx>')
         ret, res = self.gps.execCmd(parseOutput = False)
         self.failUnless(ret == 0)
         
