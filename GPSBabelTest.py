@@ -21,6 +21,8 @@ import unittest
 import os
 import os.path
 
+from decimal import Decimal
+
 import gpsbabel
 
 class GPSBabelTest(unittest.TestCase):
@@ -118,14 +120,16 @@ class GPSBabelTest(unittest.TestCase):
         self.gps.addAction('infile', 'gpx', {}, '-')
         self.gps.addAction('filter', 'simplify', {'count' : 6})
         self.gps.addAction('outfile', 'gpx', {}, '-')
-        self.failUnless(self.gps.buildCmd() == ['gpsbabel','-p','""','-c','ISO-8859-1','-i','gpx','-f','-','-x','simplify,count=6','-o','gpx','-F','-'])
+        self.failUnless(self.gps.buildCmd() == ['gpsbabel','-p','','-c','ISO-8859-1','-i','gpx','-f','-','-x','simplify,count=6','-o','gpx','-F','-'])
                 
     def testExecCmd(self):
         self.gps.addAction('charset', 'ISO-8859-1')
         self.gps.addAction('infile', 'gpx', {}, '-')
         self.gps.addAction('filter', 'simplify', {'count' : 6})
         self.gps.addAction('outfile', 'gpx', {}, '-')
-        self.failUnless(self.gps.execCmd() == (None, []))
+        self.gps.setInGpx('<?xml version="1.0" encoding="UTF-8"?><gpx version="1.0" creator="GPSBabel - http://www.gpsbabel.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/0" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd"><time>2008-10-22T18:20:22Z</time><bounds minlat="40.735149952" minlon="-75.099566588" maxlat="40.744316652" maxlon="-75.088833310"/><wpt lat="40.735149952" lon="-75.088833310"><ele>-0.114380</ele><name>GC187W</name><cmt>GC187W</cmt><desc>GC187W</desc><sym>Waypoint</sym></wpt></gpx>')
+        ret, res = self.gps.execCmd(parseOutput = False)
+        self.failUnless(ret == 0)
         
 class GPXWaypointTest(unittest.TestCase):
     def setUp(self):
@@ -150,6 +154,17 @@ class GPXRouteTest(unittest.TestCase):
         self.rte.rtepts.append(gpsbabel.GPXWaypoint())
         self.failUnless(self.rte.toXml('rte') == '<rte><name>Test Route</name><rtept lat="None" lon="None"></rtept></rte>')
 
+class GPXTrackSegTest(unittest.TestCase):
+    def setUp(self):
+        self.trkseg = gpsbabel.GPXTrackSeg()
+    
+    def testToXmlMinimal(self):
+        self.failUnless(self.trkseg.toXml() == '<trkseg></trkseg>')
+    
+    def testToXml(self):
+        self.trkseg.trkpts.append(gpsbabel.GPXWaypoint())
+        self.failUnless(self.trkseg.toXml() == '<trkseg><trkpt lat="None" lon="None"></trkpt></trkseg>')
+
 class GPXTrackTest(unittest.TestCase):
     def setUp(self):
         self.trk = gpsbabel.GPXTrack()
@@ -159,8 +174,8 @@ class GPXTrackTest(unittest.TestCase):
     
     def testToXml(self):
         self.trk.name = "Test Track"
-        self.trk.trksegs.append(gpsbabel.GPXWaypoint())
-        self.failUnless(self.trk.toXml('trk') == '<trk><name>Test Track</name><trkseg><trkpt lat="None" lon="None"></trkpt></trkseg></trk>')
+        self.trk.trksegs.append(gpsbabel.GPXTrackSeg())
+        self.failUnless(self.trk.toXml('trk') == '<trk><name>Test Track</name><trkseg></trkseg></trk>')
        
 class GPXDataTest(unittest.TestCase):
     def setUp(self):
@@ -172,6 +187,114 @@ class GPXDataTest(unittest.TestCase):
     def testToXml(self):
         self.gpx.rtes.append(gpsbabel.GPXRoute())
         self.gpx.wpts.append(gpsbabel.GPXWaypoint())
-        self.gpx.trk.append(gpsbabel.GPXTrack())
+        self.gpx.trks.append(gpsbabel.GPXTrack())
         self.failUnless(self.gpx.toXml() == '<gpx version="1.1" creator="Python GPSBabel"><wpt lat="None" lon="None"></wpt><rte></rte><trk></trk></gpx>')
-        
+    
+class GPXParserTest(unittest.TestCase):
+    def testParseWaypoint(self):
+        gd = gpsbabel.gpxParse(
+"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.0" creator="GPSBabel - http://www.gpsbabel.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/0" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd">
+<time>2008-10-22T18:20:22Z</time>
+<bounds minlat="40.735149952" minlon="-75.099566588" maxlat="40.744316652" maxlon="-75.088833310"/>
+<wpt lat="40.735149952" lon="-75.088833310">
+<ele>-0.114380</ele>
+<name>GC187W</name>
+<cmt>GC187W</cmt>
+<desc>GC187W</desc>
+<sym>Waypoint</sym>
+</wpt>
+</gpx>
+""")
+        self.failUnless(len(gd.wpts) == 1)
+        self.failUnless(len(gd.rtes) == 0)
+        self.failUnless(len(gd.trks) == 0)
+        wpt = gd.wpts[0]
+        self.failUnless(wpt.lat  == "40.735149952")
+        self.failUnless(wpt.lon  == "-75.088833310")
+        self.failUnless(wpt.ele  == "-0.114380")
+        self.failUnless(wpt.name == "GC187W")
+        self.failUnless(wpt.cmt  == "GC187W")
+        self.failUnless(wpt.desc == "GC187W")
+        self.failUnless(wpt.sym  == "Waypoint")
+    
+    def testParseRoute(self):
+        gd = gpsbabel.gpxParse(
+"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/0" version="1.0" creator="GPSBabel - http://www.gpsbabel.org" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd">
+  <time>2008-10-22T18:20:11Z</time>
+  <bounds minlat="40.735149952" minlon="-75.094233267" maxlat="40.736349989" maxlon="-75.088833310"/>
+  <rte>
+    <name>GC187W-GC187W</name>
+    <rtept lat="40.735149952" lon="-75.088833310">
+      <ele>0.000000</ele>
+      <name>GC187W</name>
+      <fix>none</fix>
+    </rtept>
+    <rtept lat="40.736349989" lon="-75.094233267">
+      <ele>0.000000</ele>
+      <name>GC198A</name>
+      <fix>none</fix>
+    </rtept>
+    <rtept lat="40.735149952" lon="-75.088833310">
+      <ele>0.000000</ele>
+      <name>GC187W</name>
+      <fix>none</fix>
+    </rtept>
+  </rte>
+</gpx>
+""")
+        self.failUnless(len(gd.wpts) == 0)
+        self.failUnless(len(gd.rtes) == 1)
+        self.failUnless(len(gd.rtes[0].rtepts) == 3)
+        self.failUnless(len(gd.trks) == 0)
+        wpt = gd.rtes[0].rtepts[0]
+        self.failUnless(wpt.lat  == "40.735149952")
+        self.failUnless(wpt.lon  == "-75.088833310")
+        self.failUnless(wpt.ele  == "0.000000")
+        self.failUnless(wpt.name == "GC187W")
+        self.failUnless(wpt.fix  == "none")
+        wpt = gd.rtes[0].rtepts[1]
+        self.failUnless(wpt.lat  == "40.736349989")
+        self.failUnless(wpt.lon  == "-75.094233267")
+        self.failUnless(wpt.ele  == "0.000000")
+        self.failUnless(wpt.name == "GC198A")
+        self.failUnless(wpt.fix  == "none")
+        wpt = gd.rtes[0].rtepts[2]
+        self.failUnless(wpt.lat  == "40.735149952")
+        self.failUnless(wpt.lon  == "-75.088833310")
+        self.failUnless(wpt.ele  == "0.000000")
+        self.failUnless(wpt.name == "GC187W")
+        self.failUnless(wpt.fix  == "none")
+
+    def testParseTrack(self):
+        gd = gpsbabel.gpxParse(
+"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/0" version="1.0" creator="GPSBabel - http://www.gpsbabel.org" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd">
+  <time>2008-10-22T18:21:23Z</time>
+  <bounds minlat="40.515346527" minlon="-75.142643452" maxlat="40.826461315" maxlon="-74.611737728"/>
+  <trk>
+    <name>ACTIVE LOG #2</name>
+    <number>1</number>
+    <trkseg>
+      <trkpt lat="40.727884769" lon="-75.115907192">
+        <ele>310.162476</ele>
+        <time>2008-08-17T18:39:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>
+""")
+        self.failUnless(len(gd.wpts) == 0)
+        self.failUnless(len(gd.rtes) == 0)
+        self.failUnless(len(gd.trks) == 1)
+        self.failUnless(len(gd.trks[0].trksegs) == 1)
+        self.failUnless(len(gd.trks[0].trksegs[0].trkpts) == 1)
+        trk = gd.trks[0]
+        self.failUnless(trk.name == "ACTIVE LOG #2")
+        self.failUnless(trk.number == "1")
+        wpt = trk.trksegs[0].trkpts[0]
+        self.failUnless(wpt.lat == "40.727884769")
+        self.failUnless(wpt.lon == "-75.115907192")
+        self.failUnless(wpt.ele == "310.162476")
+        self.failUnless(wpt.time == "2008-08-17T18:39:00Z")

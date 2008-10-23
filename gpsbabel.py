@@ -1,12 +1,7 @@
 """
 This module is is the main module for GPSBabel. It is intended to be a complete Python interface, allowing easy mechanisms to the developer to control GPSBabel from within a Python application.
 
-I've got to add classes for the data
-types (track, route, waypoint, live tracking), and code that will read
-the gpx file and write a gpx file containing same classes, and then a
-couple more convenience methods, and the work is all done.
-
-helper methods: gpxParse, getCurrentLoc
+helper methods: getCurrentLoc
 """
 """
 Python-GPSBabel - Python wrapper for GPSBabel project
@@ -38,14 +33,22 @@ class GPSBabel(object):
         self.validateVersion()
         self.readOpts()
     
-    def execCmd(self, cmd=None, parseOutput=True):
-        if cmd is None: cmd = self.buildCmd()
+    def execCmd(self, cmd=None, parseOutput=True, debug=False):
+        if cmd is None: cmd = self.buildCmd(debug)
         gps = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        gps.stdin.write(self.stdindata)
-        gps.stdin.close()
-        output = gps.stdout.readlines()
+        (stdout, stderr) = gps.communicate(self.stdindata)
+        returncode = gps.poll()
+        output = stdout.split("\n")
+        output.extend(stderr.split("\n"))
         if self.autoClear: self.clearChainOpts()
-        return(gps.returncode, output)
+        if parseOutput: output = gpxParse("\n".join(output))
+        return(returncode, output)
+    
+    def getCurrentGpsLocation(self, port, gpsType):
+        self.addAction('infile', gpsType, {'get_posn' : None}, port)
+        self.captureStdOut()
+        ret, gpx = self.execCmd()
+        return gpx
     
     def captureStdOut(self):
         self.addAction('outfile', 'gpx', {}, '-')
@@ -100,11 +103,11 @@ class GPSBabel(object):
         if not hasattr(self, "autoClear"): self.autoClear = True
     
     def validateVersion(self):
-        ret, gps = self.execCmd([self.gpsbabel, "-V"])
+        ret, gps = self.execCmd([self.gpsbabel, "-V"], parseOutput = False)
         version = ""
         for line in gps:
-            if line.strip() != "": version = "%s%s" % (version, line)
-        if version not in ['GPSBabel Version 1.3.5\n']:
+            if line.strip() != "": version = "%s%s" % (version, line.strip())
+        if version not in ['GPSBabel Version 1.3.5', 'GPSBabel Version 1.3.3']:
             raise Exception('Unsupported version of GPSBabel installed. Aborting.')
         
     def readOpts(self):
@@ -112,7 +115,7 @@ class GPSBabel(object):
         self.filters = {}
         self.charsets = {}
         ftype = ''
-        ret, gps = self.execCmd([self.gpsbabel, "-h"])
+        ret, gps = self.execCmd([self.gpsbabel, "-h"], parseOutput = False)
         mode = 0 # 0 == do nothing, 1 == file type, 2 === filter
         for line in gps:
             line = line.rstrip()
@@ -141,7 +144,7 @@ class GPSBabel(object):
                     ftype = line[:line.find(' ')].strip()
                     self.filters[ftype] = []
         charset = ''
-        ret, gps = self.execCmd([self.gpsbabel, "-l"])
+        ret, gps = self.execCmd([self.gpsbabel, "-l"], parseOutput = False)
         mode = 0 # 0 == do nothing, 1 == char set, 2 === char set alias
         for line in gps:
             line = line.rstrip()
@@ -151,9 +154,10 @@ class GPSBabel(object):
             if line.startswith('\t'):
                 self.charsets[charset].extend(filter(lambda x: len(x) > 0, map(lambda x: x.strip(), line.strip().split(','))))
 
-    def buildCmd(self):
+    def buildCmd(self, debug=False):
         cmd = ['gpsbabel', '-p']
-        cmd.append('""' if len(self.ini) == 0 else self.ini)
+        cmd.append('' if len(self.ini) == 0 else self.ini)
+        if debug: cmd.extend(['-D', '10'])
         if self.shortnames:     cmd.append('-s')
         if self.procRoutes:     cmd.append('-r')
         if self.procTrack:      cmd.append('-t')
@@ -163,7 +167,7 @@ class GPSBabel(object):
         for i in self.chain:
             fmt    = i[0]
             opts_d = i[1]
-            opts   = ",".join(map(lambda x: "%s=%s" % (x, opts_d[x]), opts_d.keys()))
+            opts   = ",".join(map(lambda x: "%s%s" % (x, "=%s" % opts_d[x] if opts_d[x] else ""), opts_d.keys()))
             if len(opts) > 0: opts = ",%s" % opts
             if fmt['action'] == 'infile':
                 cmd.extend(['-i', '%s%s' % (fmt['fmtfilter'], opts)])
@@ -175,23 +179,25 @@ class GPSBabel(object):
                 cmd.extend(['-x', '%s%s' % (fmt['fmtfilter'], opts)])
             elif fmt['action'] == 'charset':
                 cmd.extend(['-c', '%s%s' % (fmt['fmtfilter'], opts)])
-        self.clearChainOpts()
         return cmd
     
 class GPXData(object):
-    __slots__ = ['wpts', 'rtes', 'trk']
+    __slots__ = ['wpts', 'rtes', 'trks']
     
     def __init__(self):
         self.wpts = []
         self.rtes = []
-        self.trk  = []
+        self.trks = []
     
     def toXml(self):
         return '<gpx version="1.1" creator="Python GPSBabel">' + \
                "".join(map(lambda x: x.toXml("wpt"), self.wpts)) + \
                "".join(map(lambda x: x.toXml("rte"), self.rtes)) + \
-               "".join(map(lambda x: x.toXml("trk"), self.trk)) + \
+               "".join(map(lambda x: x.toXml("trk"), self.trks)) + \
                '</gpx>'
+    
+    def finalize(self):
+        pass
 
 class GPXWaypoint(object):
     __slots__ = ['lat', 'lon', 'ele', 'time', 'magvar', 'geoidheight', 'name', 'cmt', 'desc',
@@ -207,6 +213,9 @@ class GPXWaypoint(object):
                "".join(map(lambda x: '<%s>%s</%s>' % (x, getattr(self, x), x), \
                    filter(lambda x: x not in ['lat', 'lon'] and getattr(self, x) != None, self.__slots__))) + \
                '</%s>' % (tag)
+    
+    def finalize(self):
+        pass
 
 class GPXRoute(object):
     __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'rtepts']
@@ -222,6 +231,23 @@ class GPXRoute(object):
                    filter(lambda x: x not in ['rtepts'] and getattr(self, x) != None, self.__slots__))) + \
                "".join(map(lambda x: x.toXml("rtept"), self.rtepts)) + \
                '</%s>' % (tag)
+    
+    def finalize(self):
+        pass
+
+class GPXTrackSeg(object):
+    __slots__ = ['trkpts']
+    
+    def __init__(self):
+        self.trkpts = []
+    
+    def toXml(self):
+        return "<trkseg>" + \
+               "".join(map(lambda x: "%s" % x.toXml("trkpt"), self.trkpts)) + \
+               "</trkseg>"
+    
+    def finalize(self):
+        pass
 
 class GPXTrack(object):
     __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'trksegs']
@@ -235,8 +261,11 @@ class GPXTrack(object):
         return '<%s>' % (tag) + \
                "".join(map(lambda x: '<%s>%s</%s>' % (x, getattr(self, x), x), \
                    filter(lambda x: x not in ['trksegs'] and getattr(self, x) != None, self.__slots__))) + \
-               "".join(map(lambda x: "<trkseg>%s</trkseg>" % x.toXml("trkpt"), self.trksegs)) + \
+               "".join(map(lambda x: x.toXml(), self.trksegs)) + \
                '</%s>' % (tag)
+    
+    def finalize(self):
+        pass
 
 class UnknownActionException(Exception):
     pass
@@ -251,6 +280,11 @@ class InvalidOptionException(Exception):
 class UnknownCharsetException(Exception):
     pass
 
+def gpxParse(instr):
+    gpxp = GPXParser()
+    xml.sax.parseString(instr, gpxp)
+    return gpxp.gpx
+    
 class GPXParser(xml.sax.handler.ContentHandler):
     def __init__(self):
         xml.sax.ContentHandler.__init__(self)
@@ -258,17 +292,133 @@ class GPXParser(xml.sax.handler.ContentHandler):
     
     def reset(self):
         self.chdata = ""
-        self.read = False
+        self.read = 0
+        self.gpx = GPXData()
+        self.objstack = [self.gpx]
         
     def startElement(self, name, attrs):
-        pass
+        """
+        State Changes:
+          nothing - waypoint - nothing
+          nothing - route - waypoint - route - nothing
+          nothing - track - trackseg - waypoint - trackseg - track - nothing
+        States: 0=nothing, 1=wpt, 2=rte, 3=rte/wpt, 4=trk, 5=trkseg, 6=trkseg/wpt
+        """
+        self.chdata = ""
+        if self.read == 0:
+            if name == "wpt":
+                self.read = 1
+                cur = GPXWaypoint()
+                self.objstack.append(cur)
+                for i in attrs.keys():
+                    setattr(cur, i, attrs[i])
+            elif name == "rte":
+                self.read = 2
+                cur = GPXRoute()
+                self.objstack.append(cur)
+                for i in attrs.keys():
+                    setattr(cur, i, attrs[i])
+            elif name == "trk":
+                self.read = 4
+                cur = GPXTrack()
+                self.objstack.append(cur)
+                for i in attrs.keys():
+                    setattr(cur, i, attrs[i])
+        elif self.read == 1: # Waypoints
+            for i in attrs.keys():
+                setattr(self.objstack[-1], i, attrs[i])
+        elif self.read == 2: # Routes
+            if name == "rtept":
+                self.read = 3
+                cur = GPXWaypoint()
+                self.objstack.append(cur)
+            for i in attrs.keys():
+                setattr(self.objstack[-1], i, attrs[i])
+        elif self.read == 3: # Route Waypoints
+            for i in attrs.keys():
+                setattr(self.objstack[-1], i, attrs[i])
+        elif self.read == 4: # Tracks
+            if name == "trkseg":
+                self.read = 5
+                cur = GPXTrackSeg()
+                self.objstack.append(cur)
+            for i in attrs.keys():
+                setattr(self.objstack[-1], i, attrs[i])
+        elif self.read == 5: # Track Seg
+            if name == "trkpt":
+                self.read = 6
+                cur = GPXWaypoint()
+                self.objstack.append(cur)
+            for i in attrs.keys():
+                setattr(self.objstack[-1], i, attrs[i])
+        elif self.read == 6: # Track Segment Waypoints
+            for i in attrs.keys():
+                setattr(self.objstack[-1], i, attrs[i])
     
     def characters(self, ch):
         if self.read:
             self.chdata = "%s%s" % (self.chdata, ch)
     
     def endElement(self, name):
-        pass
+        name = name.lower()
+        if self.read == 1: # Waypoints
+            if name == "wpt":
+                obj = self.objstack.pop()
+                obj.finalize()
+                self.gpx.wpts.append(obj)
+                self.read = 0
+            else:
+                if self.chdata.strip() != "": setattr(self.objstack[-1], name, self.chdata)
+                self.chdata = ""
+        elif self.read == 2: # Routes
+            if name == "rte":
+                obj = self.objstack.pop()
+                obj.finalize()
+                self.gpx.rtes.append(obj)
+                self.read = 0
+            else:
+                if self.chdata.strip() != "": setattr(self.objstack[-1], name, self.chdata)
+                self.chdata = ""
+        elif self.read == 3: # Route Waypoints
+            if name == "rtept":
+                obj = self.objstack.pop()
+                obj.finalize()
+                self.objstack[-1].rtepts.append(obj)
+                self.read = 2
+            else:
+                if self.chdata.strip() != "": setattr(self.objstack[-1], name, self.chdata)
+                self.chdata = ""
+        elif self.read == 4: # Tracks
+            if name == "trk":
+                obj = self.objstack.pop()
+                obj.finalize()
+                self.gpx.trks.append(obj)
+                self.read = 0
+            else:
+                if self.chdata.strip() != "": setattr(self.objstack[-1], name, self.chdata)
+                self.chdata = ""
+        elif self.read == 5: # Track Segments
+            if name == "trkseg":
+                obj = self.objstack.pop()
+                obj.finalize()
+                self.objstack[-1].trksegs.append(obj)
+                self.read = 4
+            else:
+                if self.chdata.strip() != "": setattr(self.objstack[-1], name, self.chdata)
+                self.chdata = ""
+        elif self.read == 6: # Track Segment Waypoints
+            if name == "trkpt":
+                obj = self.objstack.pop()
+                obj.finalize()
+                self.objstack[-1].trkpts.append(obj)
+                self.read = 5
+            else:
+                if self.chdata.strip() != "": setattr(self.objstack[-1], name, self.chdata)
+                self.chdata = ""
         
 if __name__ == "__main__":
     gps = GPSBabel()
+    r = "\n".join(open("/home/marvin/src/cache901/route.gpx").readlines())
+    t = "\n".join(open("/home/marvin/src/cache901/track.gpx").readlines())
+    w = "\n".join(open("/home/marvin/src/cache901/waypoint.gpx").readlines())
+    gps.getCurrentGpsLocation('/dev/ttyUSB0', 'garmin')
