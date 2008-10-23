@@ -59,6 +59,15 @@ class GPSBabel(object):
         ret, gpx = self.execCmd(parseOutput = False)
         return gpx
     
+    def readFromGps(self, port, gpsType, wpt=False, route=False, track=False):
+        self.procWpts   = wpt
+        self.procRoutes = route
+        self.procTrack  = track
+        self.addAction('infile', gpsType, {}, port)
+        self.captureStdOut()
+        ret, gpx = self.execCmd(parseOutput = True)
+        return gpx
+    
     def captureStdOut(self):
         self.addAction('outfile', 'gpx', {}, '-')
         
@@ -426,4 +435,3 @@ class GPXParser(xml.sax.handler.ContentHandler):
             else:
                 if self.chdata.strip() != "": setattr(self.objstack[-1], name, self.chdata)
                 self.chdata = ""
-
