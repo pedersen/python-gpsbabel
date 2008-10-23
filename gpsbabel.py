@@ -50,14 +50,25 @@ class GPSBabel(object):
         ret, gpx = self.execCmd()
         return gpx
     
+    def writeToGps(self, port, gpsType, wpt=False, route=False, track=False):
+        self.procWpts   = wpt
+        self.procRoutes = route
+        self.procTrack  = track
+        self.addAction('outfile', gpsType, {}, port)
+        self.captureStdOut()
+        ret, gpx = self.execCmd(parseOutput = False)
+        return gpx
+    
     def captureStdOut(self):
         self.addAction('outfile', 'gpx', {}, '-')
         
     def setInGpx(self, gpx):
         if isinstance(gpx, str):
             self.stdindata = gpx
+            self.addAction('infile', 'gpx', {}, '-')
         elif isinstance(gpx, GPXData):
             self.stdindata = gpx.toXml()
+            self.addAction('infile', 'gpx', {}, '-')
         else:
             raise Exception("Unable to set stdin for gpsbabel. Aborting!")
     
@@ -415,10 +426,4 @@ class GPXParser(xml.sax.handler.ContentHandler):
             else:
                 if self.chdata.strip() != "": setattr(self.objstack[-1], name, self.chdata)
                 self.chdata = ""
-        
-if __name__ == "__main__":
-    gps = GPSBabel()
-    r = "\n".join(open("/home/marvin/src/cache901/route.gpx").readlines())
-    t = "\n".join(open("/home/marvin/src/cache901/track.gpx").readlines())
-    w = "\n".join(open("/home/marvin/src/cache901/waypoint.gpx").readlines())
-    gps.getCurrentGpsLocation('/dev/ttyUSB0', 'garmin')
+
