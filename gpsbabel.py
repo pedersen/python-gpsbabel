@@ -80,10 +80,11 @@ class GPSBabel(object):
     of ways.
 
     The GPSBabel class fully supports doing this. In fact, the only options
-    that are not supported are the -D option (debugging), and the -b option
-    (batch files). Everything else can be done with GPSBabel. This gives
-    you amazing power, but that power comes at a price. We try to hide it
-    as much as possible, but it's not totally easy to do so.
+    that are not supported are the -D option (debugging), the -b option
+    (batch files), and the -T option (continous tracking from the GPS).
+    Everything else can be done with GPSBabel. This gives you amazing
+    power, but that power comes at a price. We try to hide it as much as
+    possible, but it's not totally easy to do so.
 
     Methods are grouped into three sections. Commonly used, infrequently
     used, and not likely to be used. The sections are an estimate of how
@@ -99,8 +100,6 @@ class GPSBabel(object):
         * procRoutes: Boolean. Equal to -r flag. Default: False
         * procTrack:  Boolean. Equal to -t flag. Default: False
         * procWpts:   Boolean. Equal to -w flag. Default: False
-        * procGps:    Boolean. Equal to -T flag. Default: False
-                      @todo: Need to implement support for this flag
         * smartIcons: Boolean. Equal to -N flag. Default: True
         * stdindata:  String. Contains the data to send on stdin to
                       gpsbabel. Default: Empty
@@ -385,7 +384,6 @@ class GPSBabel(object):
         self.procRoutes = False
         self.procTrack  = False
         self.procWpts   = False
-        self.procGps    = False
         self.smartIcons = True
         self.stdindata  = ""
         self.chain      = []
@@ -495,7 +493,6 @@ class GPSBabel(object):
         if self.procRoutes:     cmd.append('-r')
         if self.procTrack:      cmd.append('-t')
         if self.procWpts:       cmd.append('-w')
-        if self.procGps:        cmd.append('-T')
         if not self.smartIcons: cmd.append('-N')
         for i in self.chain:
             fmt    = i[0]
