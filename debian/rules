@@ -37,7 +37,7 @@ binary-arch: build install
 	dh_testroot -a
 	dh_installchangelogs 
 	dh_pycentral -a
-	dh_strip -pgpsbabel
+	dh_strip -ppython-gpsbabel
 	dh_compress -a
 	dh_fixperms -a
 	dh_installdeb -a
