@@ -1,0 +1,50 @@
+#!/usr/bin/make -f
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+configure: configure-stamp
+configure-stamp:
+	dh_testdir
+	touch configure-stamp
+
+
+build: build-stamp
+
+build-stamp: configure-stamp  
+	dh_testdir
+	touch $@
+
+clean: 
+	dh_testdir
+	dh_testroot
+	rm -f build-stamp configure-stamp
+	dh_clean 
+	rm -rf debian/cache901
+
+install: build
+	dh_testdir
+	dh_testroot
+	dh_clean -k 
+	dh_installdirs
+	python setup.py install --root=debian/python-gpsbabel
+	find debian/python-gpsbabel -name '*.pyc' | xargs rm -f
+
+
+# Build architecture-dependent files here.
+binary-arch: build install
+	dh_testdir -a
+	dh_testroot -a
+	dh_installchangelogs 
+	dh_pycentral -a
+	dh_strip -pgpsbabel
+	dh_compress -a
+	dh_fixperms -a
+	dh_installdeb -a
+	dh_shlibdeps -a
+	dh_gencontrol -a
+	dh_md5sums -a
+	dh_builddeb -a
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install configure
