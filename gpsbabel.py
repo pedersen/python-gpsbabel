@@ -68,6 +68,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 
+import os.path
 import subprocess
 import xml.sax
 import xml.sax.handler
@@ -319,7 +320,7 @@ class GPSBabel(object):
         Out:
             The type of the file format that GPSBabel can use for this file
         """
-        gpsnames = {"gpx":"gpx", "kml":"kml", "txt":"nmea"}
+        gpsnames = {".gpx":"gpx", ".kml":"kml", ".txt":"nmea"}
         ext = os.path.splitext(fname)[-1].lower()
         return gpsnames[ext] if ext in gpsnames.keys() else None
 

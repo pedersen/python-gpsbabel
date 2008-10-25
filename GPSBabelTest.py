@@ -41,7 +41,6 @@ class GPSBabelTest(unittest.TestCase):
         self.failUnless(self.gps.procRoutes == False)
         self.failUnless(self.gps.procTrack  == False)
         self.failUnless(self.gps.procWpts   == False)
-        self.failUnless(self.gps.procGps    == False)
         self.failUnless(self.gps.smartIcons == True)
         self.failUnless(self.gps.chain == [])
         
@@ -129,6 +128,21 @@ class GPSBabelTest(unittest.TestCase):
         self.gps.addAction('outfile', 'gpx', {}, '-')
         ret, res = self.gps.execCmd(parseOutput = False)
         self.failUnless(ret == 0)
+        
+    def testGuessFormat(self):
+        self.failUnless(self.gps.guessFormat("FILENAME.GPX") == "gpx")
+        self.failUnless(self.gps.guessFormat("FILENAME.KML") == "kml")
+        self.failUnless(self.gps.guessFormat("FILENAME.TXT") == "nmea")
+        self.failUnless(self.gps.guessFormat("FILENAME.PDF") == None)
+    
+    def testGetFormats(self):
+        self.failUnless(self.gps.getFormats(self.gps.FMT_INPUT,  self.gps.FMT_FILE)   == ["gpx", "nmea", "sbp"])
+        self.failUnless(self.gps.getFormats(self.gps.FMT_OUTPUT, self.gps.FMT_FILE)   == ["gpx", "kml"])
+        self.failUnless(self.gps.getFormats(self.gps.FMT_INPUT,  self.gps.FMT_DEVICE) == ["garmin", "navilink"])
+        self.failUnless(self.gps.getFormats(self.gps.FMT_OUTPUT, self.gps.FMT_DEVICE) == ["garmin", "navilink"])
+        self.failUnless(self.gps.getFormats(-1,  self.gps.FMT_DEVICE) == ["garmin", "navilink"])
+        self.failUnless(self.gps.getFormats(self.gps.FMT_INPUT,  -1) == [])
+        self.failUnless(self.gps.getFormats(self.gps.FMT_OUTPUT, -1) == [])
         
 class GPXWaypointTest(unittest.TestCase):
     def setUp(self):
