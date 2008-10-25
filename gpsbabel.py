@@ -308,7 +308,48 @@ class GPSBabel(object):
         self.addAction('outfile', 'gpx', {}, '-')
         
     # Important methods, though they will not be commonly used, here
+    
+    def guessFormat(self, fname):
+        """
+        Very basic, very incomplete, format guessing
+        
+        In:
+            fname: The name of a file
 
+        Out:
+            The type of the file format that GPSBabel can use for this file
+        """
+        gpsnames = {"gpx":"gpx", "kml":"kml", "txt":"nmea"}
+        ext = os.path.splitext(fname)[-1].lower()
+        return gpsnames[ext] if ext in gpsnames.keys() else None
+
+    FMT_INPUT, FMT_OUTPUT, FMT_FILE, FMT_DEVICE = range(4)
+    """
+    Constants used for the getFormats method.
+    FMT_INPUT  : Direction, read from GPSBabel
+    FMT_OUTPUT : Direction, write to GPSBabel
+    FMT_FILE   : Output, write to a file
+    FMT_DEVICE : Output, write to a GPS device
+    
+    """
+    
+    def getFormats(self, direction, source):
+        """
+        Get list of formats supported for a given direction and media type
+        
+        In:
+            direction : The direction of input. Valid values are
+                        FMT_INPUT and FMT_OUTPUT
+            source    : The type of input/output. Valid values are FMT_FILE
+                        and FMT_DEVICE
+        """
+        if source == self.FMT_FILE:
+            if direction == self.FMT_OUTPUT: return ["gpx", "kml"]
+            elif direction == self.FMT_INPUT: return ["gpx", "nmea", "sbp"]
+        elif source == self.FMT_DEVICE: return ["garmin", "navilink"]
+        
+        return []
+    
     actions = ['charset', 'infile', 'filter', 'outfile']
     """
     Valid actions which GPSBabel can use.

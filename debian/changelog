@@ -1,3 +1,10 @@
+python-gpsbabel (0.7-1) unstable; urgency=low
+
+  * Added getFormats and guessFormat methods from Rodney Lorrimar
+    <rodney@rodney.id.au>
+
+ -- Michael J. Pedersen <m.pedersen@icelus.org>  Fri, 24 Oct 2008 22:06:00 -0400
+
 python-gpsbabel (0.6-1) unstable; urgency=low
 
   * Initial release

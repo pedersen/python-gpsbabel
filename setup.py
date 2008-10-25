@@ -27,7 +27,7 @@ import os, os.path, sys
 
 datafiles = []
 setup(name='gpsbabel',
-        version="0.6",
+        version="0.7",
         description='Python wrapper for GPSBabel project',
         author='Michael Pedersen',
         author_email='m.pedersen@icelus.org ',
