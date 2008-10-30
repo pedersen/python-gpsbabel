@@ -81,9 +81,8 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
-# @todo: update GPSBabel.read/write to fix execCmd call, using named parameters. Positional calls fail
 # @todo: allow program to pass file-like object instead of a string to GPSBabel stdin
-# @todo: add methods: convertAsync
+# @todo: add methods: checkStatus endExecCmd/endConvert
 # These two todo's both share a similar shortcoming in the current design:
 # subprocess.Popen.communicate
 # The communicate method takes a string (only), and passes this to the
@@ -345,7 +344,7 @@ class GPSBabel(object):
         self.procRoutes = route
         self.procTrack  = track
         self.addAction('outfile', fmt, fname, {})
-        ret, gpx = self.execCmd(parseOutput)
+        ret, gpx = self.execCmd(parseOutput = parseOutput)
         return gpx
     
     def read(self, fname, fmt, wpt=False, route=False, track=False, parseOutput=True):
@@ -377,7 +376,7 @@ class GPSBabel(object):
         self.procTrack  = track
         self.addAction('infile', fmt, fname, {})
         self.captureStdOut()
-        ret, gpx = self.execCmd(parseOutput)
+        ret, gpx = self.execCmd(parseOutput = parseOutput)
         return gpx
     
     def setInGpx(self, gpx):

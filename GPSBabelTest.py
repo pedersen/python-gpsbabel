@@ -221,6 +221,22 @@ class GPSBabelTest(unittest.TestCase):
         self.failUnless(self.gps.chain[0][1] == {})
         self.failUnless(self.gps.chain[1][0] == {'action':'filter', 'fname':None, 'fmtfilter':'simplify'})
         self.failUnless(self.gps.chain[1][1] == {'count':6})
+    
+    def testWrite(self):
+        gpx = gpsbabel.GPXData()
+        self.gps.setInGpx(gpx)
+        gpx = self.gps.write('-', 'gpx', parseOutput = True)
+        self.failUnless(len(gpx.wpts) == 0)
+        self.failUnless(len(gpx.rtes) == 0)
+        self.failUnless(len(gpx.trks) == 0)
+    
+    def testRead(self):
+        gpx = gpsbabel.GPXData()
+        self.gps.stdindata = gpx.toXml()
+        gpx = self.gps.read('-', 'gpx', parseOutput = True)
+        self.failUnless(len(gpx.wpts) == 0)
+        self.failUnless(len(gpx.rtes) == 0)
+        self.failUnless(len(gpx.trks) == 0)
         
 class GPXWaypointTest(unittest.TestCase):
     def setUp(self):
