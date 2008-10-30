@@ -45,34 +45,34 @@ class GPSBabelTest(unittest.TestCase):
         self.failUnless(self.gps.chain == [])
         
     def testReadOpts(self):
-        self.failUnless(self.gps.ftypes["garmin"] != None)
-        self.failUnless(self.gps.filters["transform"] != None)
-        self.failUnless(self.gps.charsets["ISO-8859-1"] != None)
+        self.failUnless(gpsbabel.ftypes["garmin"] != None)
+        self.failUnless(gpsbabel.filters["transform"] != None)
+        self.failUnless(gpsbabel.charsets["ISO-8859-1"] != None)
     
     def testAddActionInvalid(self):
         try:
-            self.gps.addAction('invalid', 'gpx', {}, None)
+            self.gps.addAction('invalid', 'gpx', None, {})
             self.fail('No UnknownActionException Generated')
         except gpsbabel.UnknownActionException:
             pass
         
     def testAddActionFileInvalidFilename(self):
         try:
-            self.gps.addAction('infile', 'gpx', {'foobarbaz': 'badoption'}, None)
+            self.gps.addAction('infile', 'gpx', None, {'foobarbaz': 'badoption'})
             self.fail('No MissingFilenameException Generated')
         except gpsbabel.MissingFilenameException:
             pass
         
     def testAddActionFileInvalidFormat(self):
         try:
-            self.gps.addAction('infile', 'foobarbaz', {}, 'filename')
+            self.gps.addAction('infile', 'foobarbaz', 'filename', {})
             self.fail('No MissingFileFmtException Generated')
         except gpsbabel.MissingFilefmtException:
             pass
         
     def testAddActionFileInvalidOption(self):
         try:
-            self.gps.addAction('infile', 'gpx', {'foobarbaz': 'badoption'}, 'filename')
+            self.gps.addAction('infile', 'gpx', 'filename', {'foobarbaz': 'badoption'})
             self.fail('No InvalidOptionException Generated')
         except gpsbabel.InvalidOptionException:
             pass
@@ -86,7 +86,7 @@ class GPSBabelTest(unittest.TestCase):
         
     def testAddActionFilterInvalidOption(self):
         try:
-            self.gps.addAction('filter', 'transform', {'foobarbaz' : 'invalid'})
+            self.gps.addAction('filter', 'transform', None, {'foobarbaz' : 'invalid'})
             self.fail('No InvalidOptionException Generated')
         except gpsbabel.InvalidOptionException:
             pass
@@ -99,11 +99,11 @@ class GPSBabelTest(unittest.TestCase):
             pass
         
     def testAddActionFileValid(self):
-        self.gps.addAction('infile', 'gpx', {'snlen': 6}, 'filename')
+        self.gps.addAction('infile', 'gpx', 'filename', {'snlen': 6})
         self.failUnless(len(self.gps.chain) == 1, "len(self.gps.chain) == %d" % len(self.gps.chain))
         
     def testAddActionFilterValid(self):
-        self.gps.addAction('filter', 'simplify', {'count' : 6})
+        self.gps.addAction('filter', 'simplify', None, {'count' : 6})
         self.failUnless(len(self.gps.chain) == 1, "len(self.gps.chain) == %d" % len(self.gps.chain))
         
     def testAddActionCharsetValidPrimary(self):
@@ -116,18 +116,25 @@ class GPSBabelTest(unittest.TestCase):
         
     def testBuildCmd(self):
         self.gps.addAction('charset', 'ISO-8859-1')
-        self.gps.addAction('infile', 'gpx', {}, '-')
-        self.gps.addAction('filter', 'simplify', {'count' : 6})
-        self.gps.addAction('outfile', 'gpx', {}, '-')
+        self.gps.addAction('infile', 'gpx', '-', {})
+        self.gps.addAction('filter', 'simplify', None, {'count' : 6})
+        self.gps.addAction('outfile', 'gpx', '-', {})
         self.failUnless(self.gps.buildCmd() == ['gpsbabel','-p','','-c','ISO-8859-1','-i','gpx','-f','-','-x','simplify,count=6','-o','gpx','-F','-'])
                 
     def testExecCmd(self):
         self.gps.addAction('charset', 'ISO-8859-1')
         self.gps.setInGpx('<?xml version="1.0" encoding="UTF-8"?><gpx version="1.0" creator="GPSBabel - http://www.gpsbabel.org" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/0" xsi:schemaLocation="http://www.topografix.com/GPX/1/0 http://www.topografix.com/GPX/1/0/gpx.xsd"><time>2008-10-22T18:20:22Z</time><bounds minlat="40.735149952" minlon="-75.099566588" maxlat="40.744316652" maxlon="-75.088833310"/><wpt lat="40.735149952" lon="-75.088833310"><ele>-0.114380</ele><name>GC187W</name><cmt>GC187W</cmt><desc>GC187W</desc><sym>Waypoint</sym></wpt></gpx>')
-        self.gps.addAction('filter', 'simplify', {'count' : 6})
-        self.gps.addAction('outfile', 'gpx', {}, '-')
+        self.gps.addAction('filter', 'simplify', None, {'count' : 6})
+        self.gps.addAction('outfile', 'gpx', '-', {})
         ret, res = self.gps.execCmd(parseOutput = False)
         self.failUnless(ret == 0)
+        
+    def testExecCmdException(self):
+        try:
+            self.gps.execCmd([self.gps.gpsbabel, '-foobarbaz'], parseOutput=False)
+            self.fail('No exception raised')
+        except RuntimeError:
+            pass
         
     def testGuessFormat(self):
         self.failUnless(self.gps.guessFormat("FILENAME.GPX") == "gpx")
@@ -143,6 +150,77 @@ class GPSBabelTest(unittest.TestCase):
         self.failUnless(self.gps.getFormats(-1,  self.gps.FMT_DEVICE) == ["garmin", "navilink"])
         self.failUnless(self.gps.getFormats(self.gps.FMT_INPUT,  -1) == [])
         self.failUnless(self.gps.getFormats(self.gps.FMT_OUTPUT, -1) == [])
+        
+    def testAddInputFile(self):
+        self.gps.addInputFile('-')
+        self.failUnless(len(self.gps.chain) == 2)
+        self.failUnless(self.gps.chain[0][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        self.failUnless(self.gps.chain[0][1] == {})
+        self.failUnless(self.gps.chain[1][0] == {'action':'infile', 'fname':'-', 'fmtfilter':'gpx'})
+        self.failUnless(self.gps.chain[1][1] == {})
+        
+    def testAddInputFiles(self):
+        files = {'-' : None, '-1' : [], '-2' : ['kml'], '-3' : ['kml', 'utf8']}
+        self.gps.addInputFiles(files)
+        self.failUnless(len(self.gps.chain) == 8)
+        self.failUnless(self.gps.chain[0][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        self.failUnless(self.gps.chain[0][1] == {})
+        self.failUnless(self.gps.chain[1][0] == {'action':'infile', 'fname':'-', 'fmtfilter':'gpx'})
+        self.failUnless(self.gps.chain[1][1] == {})
+        self.failUnless(self.gps.chain[2][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        self.failUnless(self.gps.chain[2][1] == {})
+        self.failUnless(self.gps.chain[3][0] == {'action':'infile', 'fname':'-1', 'fmtfilter':'gpx'})
+        self.failUnless(self.gps.chain[3][1] == {})
+        self.failUnless(self.gps.chain[4][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        self.failUnless(self.gps.chain[4][1] == {})
+        self.failUnless(self.gps.chain[5][0] == {'action':'infile', 'fname':'-2', 'fmtfilter':'kml'})
+        self.failUnless(self.gps.chain[5][1] == {})
+        self.failUnless(self.gps.chain[6][0] == {'action':'charset', 'fname':None, 'fmtfilter':'utf8'})
+        self.failUnless(self.gps.chain[6][1] == {})
+        self.failUnless(self.gps.chain[7][0] == {'action':'infile', 'fname':'-3', 'fmtfilter':'kml'})
+        self.failUnless(self.gps.chain[7][1] == {})
+        
+    def testAddOutputFiles(self):
+        files = {'-' : None, '-1' : [], '-2' : ['kml'], '-3' : ['kml', 'utf8']}
+        self.gps.addOutputFiles(files)
+        self.failUnless(len(self.gps.chain) == 8)
+        self.failUnless(self.gps.chain[0][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        self.failUnless(self.gps.chain[0][1] == {})
+        self.failUnless(self.gps.chain[1][0] == {'action':'outfile', 'fname':'-', 'fmtfilter':'gpx'})
+        self.failUnless(self.gps.chain[1][1] == {})
+        self.failUnless(self.gps.chain[2][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        self.failUnless(self.gps.chain[2][1] == {})
+        self.failUnless(self.gps.chain[3][0] == {'action':'outfile', 'fname':'-1', 'fmtfilter':'gpx'})
+        self.failUnless(self.gps.chain[3][1] == {})
+        self.failUnless(self.gps.chain[4][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        self.failUnless(self.gps.chain[4][1] == {})
+        self.failUnless(self.gps.chain[5][0] == {'action':'outfile', 'fname':'-2', 'fmtfilter':'kml'})
+        self.failUnless(self.gps.chain[5][1] == {})
+        self.failUnless(self.gps.chain[6][0] == {'action':'charset', 'fname':None, 'fmtfilter':'utf8'})
+        self.failUnless(self.gps.chain[6][1] == {})
+        self.failUnless(self.gps.chain[7][0] == {'action':'outfile', 'fname':'-3', 'fmtfilter':'kml'})
+        self.failUnless(self.gps.chain[7][1] == {})
+        
+    def testAddOutputFile(self):
+        self.gps.addOutputFile('-')
+        self.failUnless(len(self.gps.chain) == 2)
+        self.failUnless(self.gps.chain[0][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        self.failUnless(self.gps.chain[0][1] == {})
+        self.failUnless(self.gps.chain[1][0] == {'action':'outfile', 'fname':'-', 'fmtfilter':'gpx'})
+        self.failUnless(self.gps.chain[1][1] == {})
+        
+    def testAddCharset(self):
+        self.gps.addCharset('UTF-8')
+        self.failUnless(len(self.gps.chain) == 1)
+        self.failUnless(self.gps.chain[0][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        
+    def testAddFilter(self):
+        self.gps.addFilter('simplify', {'count':6})
+        self.failUnless(len(self.gps.chain) == 2)
+        self.failUnless(self.gps.chain[0][0] == {'action':'charset', 'fname':None, 'fmtfilter':'UTF-8'})
+        self.failUnless(self.gps.chain[0][1] == {})
+        self.failUnless(self.gps.chain[1][0] == {'action':'filter', 'fname':None, 'fmtfilter':'simplify'})
+        self.failUnless(self.gps.chain[1][1] == {'count':6})
         
 class GPXWaypointTest(unittest.TestCase):
     def setUp(self):

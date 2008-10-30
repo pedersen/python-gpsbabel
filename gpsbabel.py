@@ -3,10 +3,27 @@ This module is is the main module for GPSBabel. It is intended to be a
 complete Python interface, allowing easy mechanisms to the developer to
 control GPSBabel from within a Python application.
 
+@todo: allow program to pass file-like object instead of a string to GPSBabel stdin
+@todo: add methods: convertAsync
+
 It is highly recommended to read the documentation on GPSBabel at
 http://www.gpsbabel.org/ as the usage of this module is heavily modeled on
 the general usage of GPSBabel itself.
 
+The module properties are as follows:
+    * ftypes:     A dictionary of supported file types. Each key's value is
+                  a list of supported options
+    * filters:    A dictionary of supported filters. Each key's value is a
+                  list of supported options
+    * charsets:   A dictionary of supported character sets. Each key's
+                  value is a list of supported aliases for that character
+                  set.
+    * banner:     The full GPSBabel version string
+    * version:    The portion of the version string which just is the
+                  version (e.g.: 1.3.5), or None if it could not found.
+    * gps:        An instance of the GPSBabel object, pre-made and ready
+                  for use.
+                  
 The classes in this module are grouped as follows:
     * GPSBabel: The wrapper around the gpsbabel command line
     * GPXData, GPXWaypoint, GPXRoute, GPXTrackSeg, GPXTreck: These classes
@@ -23,7 +40,7 @@ Examples of usage:
 * Store waypoints, routes, and tracks in file 'mydata.gpx' on a Garmin GPS
   on port /dev/ttyUSB0, and don't XML parse the output
     gps = GPSBabel()
-    gps.addAction('infile', 'gpx', {}, 'mydata.gpx')
+    gps.addAction('infile', 'gpx', 'mydata.gpx', {})
     gps.write('/dev/ttyUSB0', 'garmin', True, True, True, False)
 
 * Store all waypoints in GPXData.wpts into 'mydata.kml', and not parse
@@ -39,7 +56,7 @@ Examples of usage:
 
 * Read a kml file 'mydata.kml' into GPXData objects
     gps = GPSBabel()
-    gps.addAction('infile', 'kml', {}, 'mydata.kml')
+    gps.addAction('infile', 'kml', 'mydata.kml', {})
     gps.captureStdOut()
     gpxd = gps.execCmd()
 
@@ -108,16 +125,6 @@ class GPSBabel(object):
                       gpsbabel. Default: Empty
         * autoClear:  Boolean. Determines whether to reset all options
                       after running gpsbabel to defaults. Default: True
-        * ftypes:     A dictionary of supported file types. Each key's
-                      value is a list of supported options
-        * filters:    A dictionary of supported filters. Each key's
-                      value is a list of supported options
-        * charsets:   A dictionary of supported character sets. Each key's
-                      value is a list of supported aliases for that
-                      character set.
-        * banner:     The full GPSBabel version string
-        * version:    The portion of the version string which just is the
-                      version (e.g.: 1.3.5), or None if it could not found.
     """
 
     # Most commonly used methods here
@@ -130,15 +137,10 @@ class GPSBabel(object):
             loc: String containing location of gpsbabel command. Can be
                  left blank if gpsbabel is in the user's PATH.
 
-        Sets instance defaults, validates the version of gpsbabel on the
-        system is in the list of supported versions, and reads the list of
-        formats, filters, and character sets supported by this version of
-        gpsbabel.
+        Sets instance defaults.
         """
         self.gpsbabel = loc
         self.clearChainOpts()
-        self.validateVersion()
-        self.readOpts()
     
     def execCmd(self, cmd=None, parseOutput=True, debug=False):
         """
@@ -161,22 +163,108 @@ class GPSBabel(object):
             output is either an array of lines which are the raw output (in
             cases where parseOutput is False), or a set of GPXData/etc
             objects (where parseOutput is True)
-
-        This method calls buildCmd when cmd is None, then runs the command
-        specified by the list that is now cmd, gathers the output, parses
-        it (when parseOutput is true), resets all defaults, and returns the
-        results of the run.
+        
+        Exceptions:
+            If gpsbabel prints any data on stderr, a RuntimeError will be 
+            raised with the contents of stderr
         """
+
+        #This method calls buildCmd when cmd is None, then runs the command
+        #specified by the list that is now cmd, gathers the output, parses
+        #it (when parseOutput is true), resets all defaults, and returns the
+        #results of the run.
         if cmd is None: cmd = self.buildCmd(debug)
         gps = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (stdout, stderr) = gps.communicate(self.stdindata)
         returncode = gps.poll()
         output = stdout.split("\n")
-        output.extend(stderr.split("\n"))
+        if len(stderr) > 0:
+            raise RuntimeError("gpsbabel failure: %s" % stderr)
         if self.autoClear: self.clearChainOpts()
         if parseOutput: output = gpxParse("\n".join(output))
         return(returncode, output)
+    convert=execCmd
+    """
+    Provide an alias to execCmd
+    """
     
+    def addInputFile(self, fname, fmt="gpx", charset="UTF-8"):
+        """
+        Adds an input file to the processing chain.
+        
+        In:
+            fname:   The name of the file to read
+            fmt:     The format of the file to read
+            charset: The character set to use when reading the file
+        """
+        self.addCharset(charset)
+        self.addAction('infile', fmt, fname)
+        
+    def addInputFiles(self, files):
+        """
+        Add a dictionary of files to the input.
+        
+        In:
+            files: A dictionary. Each key is a filename, and each value is
+            a list of up to two entries. If no entries, the default file
+            format will be used. If one, then it is treated as the file
+            format. If two, the second is treated as the character set for
+            the file.
+        """
+        for fname in sorted(files.keys()):
+            fmt = files[fname][0] if files[fname] is not None and len(files[fname]) >= 1 else "gpx"
+            charset = files[fname][1] if files[fname] is not None and len(files[fname]) >= 2 else "UTF-8"
+            self.addInputFile(fname, fmt, charset)
+        
+    def addOutputFiles(self, files):
+        """
+        Add a dictionary of files to the input.
+        
+        In:
+            files: A dictionary. Each key is a filename, and each value is
+            a list of up to two entries. If no entries, the default file
+            format will be used. If one, then it is treated as the file
+            format. If two, the second is treated as the character set for
+            the file.
+        """
+        for fname in sorted(files.keys()):
+            fmt = files[fname][0] if files[fname] is not None and len(files[fname]) >= 1 else "gpx"
+            charset = files[fname][1] if files[fname] is not None and len(files[fname]) >= 2 else "UTF-8"
+            self.addOutputFile(fname, fmt, charset)
+    
+    def addOutputFile(self, fname, fmt="gpx", charset="UTF-8"):
+        """
+        Adds an output file to the processing chain
+        
+        In:
+            fname:   The name of the file to write
+            fmt:     The format of the file to write
+            charset: The character set to use when writing the file
+        """
+        self.addCharset(charset)
+        self.addAction('outfile', fmt, fname)
+        
+    def addFilter(self, fname, opts, charset="UTF-8"):
+        """
+        Adds an filter to the processing chain
+        
+        In:
+            fname:   The name of the filter to use
+            opts:    The options for the filter
+            charset: The character set to use when running the filter
+        """
+        self.addCharset(charset)
+        self.addAction('filter', fname, None, opts)
+    
+    def addCharset(self, charset):
+        """
+        Add a character set translation to the processing chain.
+        
+        In:
+            charset: The name of the character set to use next.
+        """
+        self.addAction('charset', charset)
+        
     def getCurrentGpsLocation(self, port, gpsType):
         """
         Reads the current location from an attached GPS.
@@ -193,12 +281,12 @@ class GPSBabel(object):
         Out:
             a GPXWaypoint object that contains the current location as
             reported by the GPS.
-
-        The method is simple: Set the attached GPS as the input. Capture
-        the output. Let execCmd parse the resulting output, and return the
-        resulting GPXWaypoint that is given to use by execCmd
         """
-        self.addAction('infile', gpsType, {'get_posn' : None}, port)
+
+        #The method is simple: Set the attached GPS as the input. Capture
+        #the output. Let execCmd parse the resulting output, and return the
+        #resulting GPXWaypoint that is given to use by execCmd
+        self.addAction('infile', gpsType, port, {'get_posn' : None})
         self.captureStdOut()
         ret, gpx = self.execCmd()
         return gpx
@@ -228,14 +316,13 @@ class GPSBabel(object):
         
         Out:
             The output portion of execCmd, ignoring the return code
-
-        The method is beyond simple: Set the processing options. Add the
-        outfile processing, and run the resulting command.
         """
+        #The method is beyond simple: Set the processing options. Add the
+        #outfile processing, and run the resulting command.
         self.procWpts   = wpt
         self.procRoutes = route
         self.procTrack  = track
-        self.addAction('outfile', fmt, {}, fname)
+        self.addAction('outfile', fmt, fname, {})
         ret, gpx = self.execCmd(parseOutput)
         return gpx
     
@@ -259,15 +346,14 @@ class GPSBabel(object):
         
         Out:
             The output portion of execCmd, ignoring the return code
-
-        The method is beyond simple: Set the processing options. Add the
-        infile processing, set the output capture, and run the resulting
-        command.
         """
+        #The method is beyond simple: Set the processing options. Add the
+        #infile processing, set the output capture, and run the resulting
+        #command.
         self.procWpts   = wpt
         self.procRoutes = route
         self.procTrack  = track
-        self.addAction('infile', fmt, {}, fname)
+        self.addAction('infile', fmt, fname, {})
         self.captureStdOut()
         ret, gpx = self.execCmd(parseOutput)
         return gpx
@@ -279,26 +365,25 @@ class GPSBabel(object):
         In:
             gpx: Either a string containing a valid GPX file or a
             GPXData/etc object.
-
-        This method assumes that any string coming in will be a valid
-        string of XML which conforms to the GPX specification. If it does
-        not, then the eventual run of gpsbabel will fail.
-
-        The method is simple: Set the stdindata instance variable to be
-        either the string that is passed in, or the GPXData/etc object will
-        be converted to XML and stdindata will be set to that XML data.
-
-        Afterwards, addAction will be called to set the stdin to work
-        correctly.
-
-        Note that no options can be set on the format using this method.
         """
+        #This method assumes that any string coming in will be a valid
+        #string of XML which conforms to the GPX specification. If it does
+        #not, then the eventual run of gpsbabel will fail.
+        #
+        #The method is simple: Set the stdindata instance variable to be
+        #either the string that is passed in, or the GPXData/etc object will
+        #be converted to XML and stdindata will be set to that XML data.
+        #
+        #Afterwards, addAction will be called to set the stdin to work
+        #correctly.
+        #
+        #Note that no options can be set on the format using this method.
         if isinstance(gpx, str):
             self.stdindata = gpx
-            self.addAction('infile', 'gpx', {}, '-')
+            self.addAction('infile', 'gpx', '-', {})
         elif isinstance(gpx, GPXData):
             self.stdindata = gpx.toXml()
-            self.addAction('infile', 'gpx', {}, '-')
+            self.addAction('infile', 'gpx', '-', {})
         else:
             raise Exception("Unable to set stdin for gpsbabel. Aborting!")
     
@@ -306,7 +391,7 @@ class GPSBabel(object):
         """
         Add the action to the chain of capturing stdout.
         """
-        self.addAction('outfile', 'gpx', {}, '-')
+        self.addAction('outfile', 'gpx', '-', {})
         
     # Important methods, though they will not be commonly used, here
     
@@ -356,7 +441,7 @@ class GPSBabel(object):
     Valid actions which GPSBabel can use.
     """
 
-    def addAction(self, action, fmtfilter, opts={}, fname=None):
+    def addAction(self, action, fmtfilter, fname=None, opts={}):
         """
         Add an action to the action chain.
 
@@ -373,45 +458,44 @@ class GPSBabel(object):
                 "get_posn,snlen=6" on the command line.
             fname: The name of the file to be used for this action. Use '-'
                 for stdin/stdout
-        
-        This method is actually fairly complex, mainly because this is
-        where most error checking happens. The options are checked to make
-        sure that they are compatible with the format or filter. The action
-        is checked to make sure it's a legal action. The
-        format/filter/character set is checked to make sure it's legal.
-        
-        After all checks pass, a new entry is added to the chain list. The
-        entry is actually two dictionaries. The first describes the action,
-        and includes the type, the format/filter/character set, and the
-        filename. The second dictionary is the options. So, the entry to
-        grab the output as gpx with an snlen of 10 looks like this:
-            chain[-1] = [
-                { 'action' : 'outfile', 'fmtfilter': 'gpx', 'fname' : '-'},
-                { 'snlen' : '10' }
-                ]
         """
+        #This method is actually fairly complex, mainly because this is
+        #where most error checking happens. The options are checked to make
+        #sure that they are compatible with the format or filter. The action
+        #is checked to make sure it's a legal action. The
+        #format/filter/character set is checked to make sure it's legal.
+        # 
+        #After all checks pass, a new entry is added to the chain list. The
+        #entry is actually two dictionaries. The first describes the action,
+        #and includes the type, the format/filter/character set, and the
+        #filename. The second dictionary is the options. So, the entry to
+        #grab the output as gpx with an snlen of 10 looks like this:
+        #    chain[-1] = [
+        #        { 'action' : 'outfile', 'fmtfilter': 'gpx', 'fname' : '-'},
+        #        { 'snlen' : '10' }
+        #        ]
         action = action.lower()
         if action not in self.actions:
             raise UnknownActionException("Error: Unknown action %s" % action)
         if action in ['infile', 'outfile'] and fname == None:
             raise MissingFilenameException('Error: Action %s requires a filename, and we have none' % action)
         if action in ['infile', 'outfile']:
-            if not self.ftypes.has_key(fmtfilter):
+            if not ftypes.has_key(fmtfilter):
                 raise MissingFilefmtException('Error: File format %s is unknown' % fmtfilter)
             for key in opts.keys():
-                if not key in self.ftypes[fmtfilter]:
+                if not key in ftypes[fmtfilter]:
                     raise InvalidOptionException('Error: File format %s has no such option %s' % (fmtfilter, key))
         if action == 'filter':
-            if not self.filters.has_key(fmtfilter):
+            if not filters.has_key(fmtfilter):
                 raise MissingFilterException('Error: Filter %s is unknown' % fmtfilter)
             for key in opts.keys():
-                if not key in self.filters[fmtfilter]:
+                if not key in filters[fmtfilter]:
                     raise InvalidOptionException('Error: Filter %s has no such option %s' % (fmtfilter, key))
         if action == 'charset':
             cfound = False
-            if not self.charsets.has_key(fmtfilter):
-                for key in self.charsets.keys():
-                    if fmtfilter in self.charsets[key]: cfound = True
+            if not charsets.has_key(fmtfilter):
+                for key in charsets.keys():
+                    if fmtfilter in charsets[key]: cfound = True
             else: cfound = True
             if not cfound:
                 raise UnknownCharsetException('Error: Unknown character set %s' % fmtfilter)
@@ -430,87 +514,12 @@ class GPSBabel(object):
         self.stdindata  = ""
         self.chain      = []
         if not hasattr(self, "autoClear"): self.autoClear = True
+    clear = clearChainOpts
+    """
+    Provide an alias to clearChainOpts
+    """
     
     # The following methods are meant for internal use. You are welcome to use them yourself, but they are going to be extremely uncommon
-
-    def validateVersion(self):
-        """
-        Find the version of GPSBabel in the system path and make sure it's
-        supported. Raise an exception if not.
-        """
-        ret, gps = self.execCmd([self.gpsbabel, "-V"], parseOutput = False)
-        version = ""
-        for line in gps:
-            if line.strip() != "": version = "%s%s" % (version, line.strip())
-        if version not in ['GPSBabel Version 1.3.5', 'GPSBabel Version 1.3.3']:
-            raise Exception('Unsupported version of GPSBabel installed. Aborting.')
-        
-        self.banner = version
-        try:
-            self.version = version.split(" ")[2]
-        except:
-            self.version = None
-    check_exe = validateVersion
-    """
-    Provide an alias to validateVersion
-    """
-        
-    def readOpts(self):
-        """
-        Read the supported formats/filters/character sets from the
-        installed gpsbabel.
-
-        Run gpsbabel with the -h parameter, and parse the three sections:
-        0: general help, which this method ignores
-        1: file types. Make sure to read options when reading the file
-            types
-        2: filters. Make sure to read options when reading the filters
-
-        Run gpsbabel with the -l parmater, and parse the output. Character
-        set names are on lines starting with "*", and aliases are on
-        subsequent lines and the lines start with the tab character ("\t")
-        """
-        self.ftypes = {}
-        self.filters = {}
-        self.charsets = {}
-        ftype = ''
-        ret, gps = self.execCmd([self.gpsbabel, "-h"], parseOutput = False)
-        mode = 0 # 0 == do nothing, 1 == file type, 2 === filter
-        for line in gps:
-            line = line.rstrip()
-            if line.strip() == 'File Types (-i and -o options):':
-                mode = 1
-                continue
-            if line.strip() == 'Supported data filters:':
-                mode = 2
-                continue
-            if mode == 0 or line.strip() == '':
-                continue
-            if mode == 1:
-                if line.startswith('\t  '): # reading type option
-                    line = line.strip()
-                    self.ftypes[ftype].append(line[:line.find(' ')].strip())
-                else: # reading type name
-                    line = line.strip()
-                    ftype = line[:line.find(' ')].strip()
-                    self.ftypes[ftype] = []
-            elif mode == 2:
-                if line.startswith('\t '): # reading type option
-                    line = line.strip()
-                    self.filters[ftype].append(line[:line.find(' ')].strip())
-                else: # reading type name
-                    line = line.strip()
-                    ftype = line[:line.find(' ')].strip()
-                    self.filters[ftype] = []
-        charset = ''
-        ret, gps = self.execCmd([self.gpsbabel, "-l"], parseOutput = False)
-        for line in gps:
-            line = line.rstrip()
-            if line.startswith('*'):
-                charset = line[line.find(' ')+1:]
-                self.charsets[charset] = []
-            if line.startswith('\t'):
-                self.charsets[charset].extend(filter(lambda x: len(x) > 0, map(lambda x: x.strip(), line.strip().split(','))))
 
     def buildCmd(self, debug=False):
         """
@@ -523,11 +532,10 @@ class GPSBabel(object):
             A list of command line parameters. Example:
                 ['gpsbabel', '-p', '', '-D', '10', '-i', 'gpx', '-f', \
                     '-', '-o', 'garmin', '-F', '/dev/ttyUSB0']
-
-        The method is simple: Make the base list, add various options as
-        specified by the flags. Loop over the actions, and add them in
-        appropriately. Return the list.
         """
+        #The method is simple: Make the base list, add various options as
+        #specified by the flags. Loop over the actions, and add them in
+        #appropriately. Return the list.
         cmd = [self.gpsbabel, '-p']
         cmd.append('' if len(self.ini) == 0 else self.ini)
         if debug: cmd.extend(['-D', '10'])
@@ -765,21 +773,22 @@ def gpxParse(instr):
     
 class GPXParser(xml.sax.handler.ContentHandler):
     """
-    This is a SAX XML parser. As such, it has to track state changes so it
-    knows where things are and what to do next. The states are pretty
-    simplistic, so hopefully the diagram below makes sense. If not, let me
-    know, and I'll improve it.
-
-    Basically, we're always reading one of 6 things: nothing, waypoint,
-    route, route waypoint, track, tracksegment, or track segment waypoint.
-    Track which state we're in, and act accordingly.
-
-    State Changes:
-        nothing - waypoint - nothing
-        nothing - route - waypoint - route - nothing
-        nothing - track - trackseg - waypoint - trackseg - track - nothing
-    States: 0=nothing, 1=wpt, 2=rte, 3=rte/wpt, 4=trk, 5=trkseg, 6=trkseg/wpt
+    This is a SAX XML parser for GPX files.
     """
+    #As such, it has to track state changes so it
+    #knows where things are and what to do next. The states are pretty
+    #simplistic, so hopefully the diagram below makes sense. If not, let me
+    #know, and I'll improve it.
+    #
+    #Basically, we're always reading one of 6 things: nothing, waypoint,
+    #route, route waypoint, track, tracksegment, or track segment waypoint.
+    #Track which state we're in, and act accordingly.
+    #
+    #State Changes:
+    #    nothing - waypoint - nothing
+    #    nothing - route - waypoint - route - nothing
+    #    nothing - track - trackseg - waypoint - trackseg - track - nothing
+    #States: 0=nothing, 1=wpt, 2=rte, 3=rte/wpt, 4=trk, 5=trkseg, 6=trkseg/wpt
     def __init__(self):
         """
         Constructor. Clear out the character data buffer, set initial read
@@ -795,17 +804,16 @@ class GPXParser(xml.sax.handler.ContentHandler):
     def startElement(self, name, attrs):
         """
         Handle the start of a new element.
-
-        This method assumes that all character data will be completely
-        placed at the end of the element. As such, it erases any previously
-        read character data.
-
-        The methodology is as follows:
-        Check the current state. From there, check possible states to
-        transition to. If the new element name indicates a transition,
-        transition to the new state, and copy all attributes into the new
-        object.
         """
+        #This method assumes that all character data will be completely
+        #placed at the end of the element. As such, it erases any previously
+        #read character data.
+        #
+        #The methodology is as follows:
+        #Check the current state. From there, check possible states to
+        #transition to. If the new element name indicates a transition,
+        #transition to the new state, and copy all attributes into the new
+        #object.
         self.chdata = ""
         if self.read == 0:
             if name == "wpt":
@@ -860,25 +868,23 @@ class GPXParser(xml.sax.handler.ContentHandler):
     def characters(self, ch):
         """
         Append character data to be read.
-
-        If we're in a readable state, save this character data. Otherwise,
-        discard it.
         """
+        #If we're in a readable state, save this character data. Otherwise,
+        #discard it.
         if self.read:
             self.chdata = "%s%s" % (self.chdata, ch)
     
     def endElement(self, name):
         """
         Conclude a given element.
-
-        Check the current state. If the ending tag indicates the end of the
-        current state, finalize the current object, and transition to the
-        new state.
-
-        Otherwise, attach the current character data (if any
-        non-whitespace) to the same attribute as the element name on the
-        current object.
         """
+        #Check the current state. If the ending tag indicates the end of the
+        #current state, finalize the current object, and transition to the
+        #new state.
+        #
+        #Otherwise, attach the current character data (if any
+        #non-whitespace) to the same attribute as the element name on the
+        #current object.
         name = name.lower()
         if self.read == 1: # Waypoints
             if name == "wpt":
@@ -934,3 +940,87 @@ class GPXParser(xml.sax.handler.ContentHandler):
             else:
                 if self.chdata.strip() != "": setattr(self.objstack[-1], name, self.chdata)
                 self.chdata = ""
+
+def validateVersion(gps):
+    """
+    Find the version of GPSBabel in the system path and make sure it's
+    supported. Raise an exception if not.
+    """
+    ret, gpsver = gps.execCmd([gps.gpsbabel, "-V"], parseOutput = False)
+    versionstr = ""
+    for line in gpsver:
+        if line.strip() != "": versionstr = "%s%s" % (versionstr, line.strip())
+    if versionstr not in ['GPSBabel Version 1.3.5', 'GPSBabel Version 1.3.3']:
+        raise Exception('Unsupported version of GPSBabel installed. Aborting.')
+    
+    banner = versionstr
+    try:
+        version = versionstr.split(" ")[2]
+    except:
+        raise Exception('Unsupported version of GPSBabel installed. Aborting.')
+check_exe = validateVersion
+"""
+Provide an alias to validateVersion
+"""
+    
+def readOpts(gpso):
+    """
+    Read the supported formats/filters/character sets from the
+    installed gpsbabel.
+    """
+    #Run gpsbabel with the -h parameter, and parse the three sections:
+    #0: general help, which this method ignores
+    #1: file types. Make sure to read options when reading the file
+    #    types
+    #2: filters. Make sure to read options when reading the filters
+    #Run gpsbabel with the -l parmater, and parse the output. Character
+    #set names are on lines starting with "*", and aliases are on
+    #subsequent lines and the lines start with the tab character ("\t")
+    ftype = ''
+    ret, gps = gpso.execCmd([gpso.gpsbabel, "-h"], parseOutput = False)
+    mode = 0 # 0 == do nothing, 1 == file type, 2 === filter
+    for line in gps:
+        line = line.rstrip()
+        if line.strip() == 'File Types (-i and -o options):':
+            mode = 1
+            continue
+        if line.strip() == 'Supported data filters:':
+            mode = 2
+            continue
+        if mode == 0 or line.strip() == '':
+            continue
+        if mode == 1:
+            if line.startswith('\t  '): # reading type option
+                line = line.strip()
+                ftypes[ftype].append(line[:line.find(' ')].strip())
+            else: # reading type name
+                line = line.strip()
+                ftype = line[:line.find(' ')].strip()
+                ftypes[ftype] = []
+        elif mode == 2:
+            if line.startswith('\t '): # reading type option
+                line = line.strip()
+                filters[ftype].append(line[:line.find(' ')].strip())
+            else: # reading type name
+                line = line.strip()
+                ftype = line[:line.find(' ')].strip()
+                filters[ftype] = []
+    charset = ''
+    ret, gps = gpso.execCmd([gpso.gpsbabel, "-l"], parseOutput = False)
+    for line in gps:
+        line = line.rstrip()
+        if line.startswith('*'):
+            charset = line[line.find(' ')+1:]
+            charsets[charset] = []
+        if line.startswith('\t'):
+            charsets[charset].extend(filter(lambda x: len(x) > 0, map(lambda x: x.strip(), line.strip().split(','))))
+
+
+version = None
+banner = None
+ftypes = {}
+filters = {}
+charsets = {}
+gps = GPSBabel()
+validateVersion(gps)
+readOpts(gps)
