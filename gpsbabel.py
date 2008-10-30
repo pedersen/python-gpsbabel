@@ -3,9 +3,6 @@ This module is is the main module for GPSBabel. It is intended to be a
 complete Python interface, allowing easy mechanisms to the developer to
 control GPSBabel from within a Python application.
 
-@todo: allow program to pass file-like object instead of a string to GPSBabel stdin
-@todo: add methods: convertAsync
-
 It is highly recommended to read the documentation on GPSBabel at
 http://www.gpsbabel.org/ as the usage of this module is heavily modeled on
 the general usage of GPSBabel itself.
@@ -84,6 +81,30 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
+# @todo: allow program to pass file-like object instead of a string to GPSBabel stdin
+# @todo: add methods: convertAsync
+# These two todo's both share a similar shortcoming in the current design:
+# subprocess.Popen.communicate
+# The communicate method takes a string (only), and passes this to the
+# process being run. Once it does so, it waits for the process to terminate
+# before collecting the output and return it to the calling process.
+#
+# subprocess.Popen.communicate is used by the current implementation of the
+# execCmd method. An async version of execCmd would need to spawn a new
+# thread, and then call a function when that thread is terminated. This
+# opens up more issues, as the event model of the calling program might be
+# interrupted (for instance, PyQt uses a different event model from
+# wxPython). This could lead to instability in the calling program. I'm not
+# sure of a good way to deal with this, and would appreciate any advice or
+# code.
+# 
+# Passing in a file-like object poses another issue for communicate: It
+# doesn't like this. It only wants to send a string. Now, things could be
+# changed to allow the calling program to pass in a file like object, but
+# that would involve doing something else *other* than communicate, and I'm
+# not sure what that should be or how to do it best. Again, advice or code
+# would be much appreciated.
+
 
 import os.path
 import subprocess
@@ -1024,3 +1045,4 @@ charsets = {}
 gps = GPSBabel()
 validateVersion(gps)
 readOpts(gps)
+
