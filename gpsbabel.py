@@ -100,12 +100,15 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
+import datetime
 import os.path
 import select
 import subprocess
 import time
 import xml.sax
 import xml.sax.handler
+
+from decimal import Decimal
 
 class GPSBabel(object):
     """
@@ -736,8 +739,16 @@ class GPXWaypoint(object):
         """
         Any post load of XML steps are placed here.
         """
-        pass
-
+        for i in ['lat', 'lon', 'ele', 'magvar', 'geoidheight', 'hdop', 'vdop', 'pdop', 'ageofdgpsdata']:
+            if getattr(self, i) is not None:
+                setattr(self, i, Decimal(getattr(self, i)))
+        for i in ['sat', 'dgpsid']:
+            if getattr(self, i) is not None:
+                setattr(self, i, int(getattr(self, i)))
+        for i in ['time']:
+            if getattr(self, i) is not None:
+                setattr(self, i, datetime.datetime(*time.strptime(getattr(self, i), '%Y-%m-%dT%H:%M:%SZ')[:6]))
+                
 class GPXRoute(object):
     """
     Container for rteType objects.
@@ -787,7 +798,8 @@ class GPXRoute(object):
         """
         Any post load of XML steps are placed here.
         """
-        pass
+        self.number = int(self.number) if self.number is not None else None
+            
 
 class GPXTrackSeg(object):
     """
@@ -880,7 +892,7 @@ class GPXTrack(object):
         """
         Any post load of XML steps are placed here.
         """
-        pass
+        self.number = int(self.number) if self.number is not None else None
 
 class UnknownActionException(Exception):
     pass

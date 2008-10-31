@@ -17,9 +17,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 
-import unittest
+import datetime
 import os
 import os.path
+import unittest
 
 from decimal import Decimal
 
@@ -317,9 +318,9 @@ class GPXParserTest(unittest.TestCase):
         self.failUnless(len(gd.rtes) == 0)
         self.failUnless(len(gd.trks) == 0)
         wpt = gd.wpts[0]
-        self.failUnless(wpt.lat  == "40.735149952")
-        self.failUnless(wpt.lon  == "-75.088833310")
-        self.failUnless(wpt.ele  == "-0.114380")
+        self.failUnless(wpt.lat  == Decimal("40.735149952"))
+        self.failUnless(wpt.lon  == Decimal("-75.088833310"))
+        self.failUnless(wpt.ele  == Decimal("-0.114380"))
         self.failUnless(wpt.name == "GC187W")
         self.failUnless(wpt.cmt  == "GC187W")
         self.failUnless(wpt.desc == "GC187W")
@@ -356,21 +357,21 @@ class GPXParserTest(unittest.TestCase):
         self.failUnless(len(gd.rtes[0].rtepts) == 3)
         self.failUnless(len(gd.trks) == 0)
         wpt = gd.rtes[0].rtepts[0]
-        self.failUnless(wpt.lat  == "40.735149952")
-        self.failUnless(wpt.lon  == "-75.088833310")
-        self.failUnless(wpt.ele  == "0.000000")
+        self.failUnless(wpt.lat  == Decimal("40.735149952"))
+        self.failUnless(wpt.lon  == Decimal("-75.088833310"))
+        self.failUnless(wpt.ele  == Decimal("0.000000"))
         self.failUnless(wpt.name == "GC187W")
         self.failUnless(wpt.fix  == "none")
         wpt = gd.rtes[0].rtepts[1]
-        self.failUnless(wpt.lat  == "40.736349989")
-        self.failUnless(wpt.lon  == "-75.094233267")
-        self.failUnless(wpt.ele  == "0.000000")
+        self.failUnless(wpt.lat  == Decimal("40.736349989"))
+        self.failUnless(wpt.lon  == Decimal("-75.094233267"))
+        self.failUnless(wpt.ele  == Decimal("0.000000"))
         self.failUnless(wpt.name == "GC198A")
         self.failUnless(wpt.fix  == "none")
         wpt = gd.rtes[0].rtepts[2]
-        self.failUnless(wpt.lat  == "40.735149952")
-        self.failUnless(wpt.lon  == "-75.088833310")
-        self.failUnless(wpt.ele  == "0.000000")
+        self.failUnless(wpt.lat  == Decimal("40.735149952"))
+        self.failUnless(wpt.lon  == Decimal("-75.088833310"))
+        self.failUnless(wpt.ele  == Decimal("0.000000"))
         self.failUnless(wpt.name == "GC187W")
         self.failUnless(wpt.fix  == "none")
 
@@ -399,9 +400,9 @@ class GPXParserTest(unittest.TestCase):
         self.failUnless(len(gd.trks[0].trksegs[0].trkpts) == 1)
         trk = gd.trks[0]
         self.failUnless(trk.name == "ACTIVE LOG #2")
-        self.failUnless(trk.number == "1")
+        self.failUnless(trk.number == 1)
         wpt = trk.trksegs[0].trkpts[0]
-        self.failUnless(wpt.lat == "40.727884769")
-        self.failUnless(wpt.lon == "-75.115907192")
-        self.failUnless(wpt.ele == "310.162476")
-        self.failUnless(wpt.time == "2008-08-17T18:39:00Z")
+        self.failUnless(wpt.lat == Decimal("40.727884769"))
+        self.failUnless(wpt.lon == Decimal("-75.115907192"))
+        self.failUnless(wpt.ele == Decimal("310.162476"))
+        self.failUnless(wpt.time == datetime.datetime(2008, 8, 17, 18, 39, 00))
