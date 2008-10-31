@@ -31,7 +31,7 @@ The classes in this module are grouped as follows:
     * GPXParser: The class that parses GPX files.
 
 There is also the utility method "gpxParse" which is used to actually parse
-a gpx file into the GPX classes above, and which uses the GPXParser class.
+a gpx string into the GPX classes above, and which uses the GPXParser class.
 
 Examples of usage:
 * Store waypoints, routes, and tracks in file 'mydata.gpx' on a Garmin GPS
