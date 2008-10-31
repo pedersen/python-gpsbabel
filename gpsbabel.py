@@ -37,8 +37,12 @@ Examples of usage:
 * Store waypoints, routes, and tracks in file 'mydata.gpx' on a Garmin GPS
   on port /dev/ttyUSB0, and don't XML parse the output
     gps = GPSBabel()
-    gps.addAction('infile', 'gpx', 'mydata.gpx', {})
-    gps.write('/dev/ttyUSB0', 'garmin', True, True, True, False)
+    gps.addInputFile('mydata.gpx')
+    gps.addOutputFile('/dev/ttyUSB0', 'garmin')
+    gps.procRoutes = True
+    gps.procTrack = True
+    gps.procWpts = True
+    gps.execCmd(parseOutput = False)
 
 * Store all waypoints in GPXData.wpts into 'mydata.kml', and not parse
   the output
@@ -49,11 +53,15 @@ Examples of usage:
     gpxd.wpts[-1].name = "WPT1"
     gps = GPSBabel()
     gps.setInGpx(gpxd)
-    gps.write('mydata.kml', 'kml', True, False, False, False)
+    gps.addOutputFile('mydata.kml', 'kml')
+    gps.procRoutes = False
+    gps.procTrack = False
+    gps.procWpts = True
+    gps.execCmd(parseOutput = False)
 
 * Read a kml file 'mydata.kml' into GPXData objects
     gps = GPSBabel()
-    gps.addAction('infile', 'kml', 'mydata.kml', {})
+    gps.addInputFile('mydata.kml', 'kml')
     gps.captureStdOut()
     gpxd = gps.execCmd()
 
@@ -62,6 +70,17 @@ Examples of usage:
     gps = GPSBabel()
     gps.setInGpx(gpxd)
     gps.write('usb:', 'garmin', True, parseOutput = False)
+
+* Read a kml file 'mydata.kml' into GPXData objects, but do not wait for
+  GPSBabel to complete its run. This is likely to be used in a GUI, to
+  allow for the GUI to update while GPSBabel runs in the background.
+    gps = GPSBabel()
+    gps.addInputFile('mydata.kml', 'kml')
+    gps.captureStdOut()
+    gps.execCmd(wait=False)
+    while gps.checkCmd() == None: pass
+    (retcode, gpxd) = gps.endCmd()
+
 """
 """
 Python-GPSBabel - Python wrapper for GPSBabel project
@@ -81,33 +100,10 @@ You should have received a copy of the GNU General Public License along
 with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
-# @todo: allow program to pass file-like object instead of a string to GPSBabel stdin
-# @todo: add methods: checkStatus endExecCmd/endConvert
-# These two todo's both share a similar shortcoming in the current design:
-# subprocess.Popen.communicate
-# The communicate method takes a string (only), and passes this to the
-# process being run. Once it does so, it waits for the process to terminate
-# before collecting the output and return it to the calling process.
-#
-# subprocess.Popen.communicate is used by the current implementation of the
-# execCmd method. An async version of execCmd would need to spawn a new
-# thread, and then call a function when that thread is terminated. This
-# opens up more issues, as the event model of the calling program might be
-# interrupted (for instance, PyQt uses a different event model from
-# wxPython). This could lead to instability in the calling program. I'm not
-# sure of a good way to deal with this, and would appreciate any advice or
-# code.
-# 
-# Passing in a file-like object poses another issue for communicate: It
-# doesn't like this. It only wants to send a string. Now, things could be
-# changed to allow the calling program to pass in a file like object, but
-# that would involve doing something else *other* than communicate, and I'm
-# not sure what that should be or how to do it best. Again, advice or code
-# would be much appreciated.
-
-
 import os.path
+import select
 import subprocess
+import time
 import xml.sax
 import xml.sax.handler
 
@@ -160,10 +156,11 @@ class GPSBabel(object):
 
         Sets instance defaults.
         """
+        self.__gps = None
         self.gpsbabel = loc
         self.clearChainOpts()
     
-    def execCmd(self, cmd=None, parseOutput=True, debug=False):
+    def execCmd(self, cmd=None, parseOutput=True, wait=True, debug=False):
         """
         Used to run the command that has been built.
 
@@ -175,6 +172,10 @@ class GPSBabel(object):
                 gpsbabel
             parseOutput: If True, attempt to parse the output as a GPX
                 file.
+            wait: If True, wait until gpsbabel is done before returning. If
+                False, return immediately. It is then the caller's
+                responsibility to use checkCmd and endCmd, respectively,
+                to perform any cleanup.
             debug: If True, and cmd is None, set the debug level to 10
                 while running gpsbabel
 
@@ -191,23 +192,63 @@ class GPSBabel(object):
         """
 
         #This method calls buildCmd when cmd is None, then runs the command
-        #specified by the list that is now cmd, gathers the output, parses
-        #it (when parseOutput is true), resets all defaults, and returns the
-        #results of the run.
+        #specified by the list that is now cmd. If wait is true, it manages
+        #the calling of checkCmd and encCmd for the caller.
         if cmd is None: cmd = self.buildCmd(debug)
-        gps = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        (stdout, stderr) = gps.communicate(self.stdindata)
-        returncode = gps.poll()
-        output = stdout.split("\n")
-        if len(stderr) > 0:
-            raise RuntimeError("gpsbabel failure: %s" % stderr)
-        if self.autoClear: self.clearChainOpts()
-        if parseOutput: output = gpxParse("\n".join(output))
-        return(returncode, output)
+        self.__parseOutput = parseOutput
+        self.__gps = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.__stdout = []
+        self.__stderr = []
+        if isinstance(self.stdindata, str):
+            self.__gps.stdin.write(self.stdindata)
+        else:
+            for i in self.stdindata:
+                self.__gps.stdin.write(i)
+        self.__gps.stdin.close()
+        if wait:
+            self.__returncode = None
+            while self.__returncode is None: self.checkCmd()
+            return self.endCmd()
     convert=execCmd
     """
     Provide an alias to execCmd
     """
+
+    def checkCmd(self):
+        """
+        Check the status of the running gpsbabel. Return None unless
+        gpsbabel has exited, in which case return the exit code.
+        """
+        if self.__gps is None:
+            return None
+        time.sleep(0.1)
+        self.__returncode = self.__gps.poll()
+        inputready, outputready, exceptready = select.select([self.__gps.stdout, self.__gps.stderr], [], [], 0)
+        for s in inputready:
+            if s == self.__gps.stdout:
+                self.__stdout.extend(self.__gps.stdout.readlines())
+            elif s == self.__gps.stderr:
+                self.__stderr.extend(self.__gps.stderr.readlines())
+        return self.__returncode
+    checkConvert = checkCmd
+
+    def endCmd(self):
+        """
+        Get the exit code for the running gpsbabel, and the output, and
+        return both.
+        """
+        if self.__gps is None:
+            return (None, [])
+        if self.checkCmd() is None:
+            return (None, [])
+        output = self.__stdout
+        if len(self.__stderr) > 0:
+            raise RuntimeError("gpsbabel failure: %s" % "\n".join(self.__stderr))
+        if self.autoClear: self.clearChainOpts()
+        if self.__parseOutput: output = gpxParse("\n".join(output))
+        self.__gps = None
+        return(self.__returncode, output)
+    endConvert = endCmd
     
     def addInputFile(self, fname, fmt="gpx", charset="UTF-8"):
         """
@@ -385,7 +426,9 @@ class GPSBabel(object):
 
         In:
             gpx: Either a string containing a valid GPX file or a
-            GPXData/etc object.
+            GPXData/etc object, or an interable object that will output GPX
+            when iterated over. See the GPXData/etc objects for an example
+            of this.
         """
         #This method assumes that any string coming in will be a valid
         #string of XML which conforms to the GPX specification. If it does
@@ -403,10 +446,15 @@ class GPSBabel(object):
             self.stdindata = gpx
             self.addAction('infile', 'gpx', '-', {})
         elif isinstance(gpx, GPXData):
-            self.stdindata = gpx.toXml()
+            self.stdindata = gpx
             self.addAction('infile', 'gpx', '-', {})
         else:
-            raise Exception("Unable to set stdin for gpsbabel. Aborting!")
+            try:
+                it = iter(gpx)
+                self.stdindata = gpx
+                self.addAction('infile', 'gpx', '-', {})
+            except TypeError:
+                raise Exception("Unable to set stdin for gpsbabel. Aborting!")
     
     def captureStdOut(self):
         """
@@ -606,6 +654,25 @@ class GPXData(object):
         self.rtes = []
         self.trks = []
     
+    def __iter__(self):
+        return self.next()
+    
+    def next(self):
+        yield '<gpx version="1.1" creator="Python GPSBabel">'
+        for wpt in self.wpts:
+            wpt.xmltag = 'wpt'
+            for i in wpt:
+                yield i
+        for rte in self.rtes:
+            rte.xmltag = 'rte'
+            for i in rte:
+                yield i
+        for trk in self.trks:
+            trk.xmltag = 'trk'
+            for i in trk:
+                yield i
+        yield '</gpx>'
+        
     def toXml(self):
         """
         Return XML representation.
@@ -613,11 +680,10 @@ class GPXData(object):
         Out:
             This object in XML
         """
-        return '<gpx version="1.1" creator="Python GPSBabel">' + \
-               "".join(map(lambda x: x.toXml("wpt"), self.wpts)) + \
-               "".join(map(lambda x: x.toXml("rte"), self.rtes)) + \
-               "".join(map(lambda x: x.toXml("trk"), self.trks)) + \
-               '</gpx>'
+        output = ""
+        for i in self:
+            output = "%s%s" % (output, i)
+        return output
     
     def finalize(self):
         """
@@ -631,7 +697,7 @@ class GPXWaypoint(object):
     """
     __slots__ = ['lat', 'lon', 'ele', 'time', 'magvar', 'geoidheight', 'name', 'cmt', 'desc',
                  'src', 'link', 'sym', 'type', 'fix', 'sat', 'hdop', 'vdop', 'pdop',
-                 'ageofdgpsdata', 'dgpsid']
+                 'ageofdgpsdata', 'dgpsid', 'xmltag']
     
     def __init__(self):
         """
@@ -640,6 +706,15 @@ class GPXWaypoint(object):
         for i in self.__slots__:
             setattr(self, i, None)
     
+    def __iter__(self):
+        return self.next()
+    
+    def next(self):
+        yield '<%s lat="%s" lon="%s">' % (self.xmltag, str(self.lat), str(self.lon))
+        for attr in filter(lambda x: x not in ['lat', 'lon', 'xmltag'] and getattr(self, x) != None, self.__slots__):
+            yield '<%s>%s</%s>' % (attr, getattr(self, attr), attr)
+        yield '</%s>' % (self.xmltag)
+        
     def toXml(self, tag):
         """
         Return XML representation.
@@ -650,10 +725,11 @@ class GPXWaypoint(object):
         Out:
             This object in XML
         """
-        return '<%s lat="%s" lon="%s">' % (tag, str(self.lat), str(self.lon)) + \
-               "".join(map(lambda x: '<%s>%s</%s>' % (x, getattr(self, x), x), \
-                   filter(lambda x: x not in ['lat', 'lon'] and getattr(self, x) != None, self.__slots__))) + \
-               '</%s>' % (tag)
+        self.xmltag = tag
+        output = ""
+        for i in self:
+            output = "%s%s" % (output, i)
+        return output
     
     def finalize(self):
         """
@@ -667,7 +743,7 @@ class GPXRoute(object):
 
     Note: rtepts is a list of GPXWaypoint objects
     """
-    __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'rtepts']
+    __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'rtepts', 'xmltag']
     
     def __init__(self):
         """
@@ -676,6 +752,19 @@ class GPXRoute(object):
         for i in self.__slots__:
             setattr(self, i, None)
         self.rtepts = []
+    
+    def __iter__(self):
+        return self.next()
+    
+    def next(self):
+        yield '<%s>' % (self.xmltag)
+        for attr in filter(lambda x: x not in ['rtepts', 'xmltag'] and getattr(self, x) != None, self.__slots__):
+            yield '<%s>%s</%s>' % (attr, getattr(self, attr), attr)
+        for rte in self.rtepts:
+            rte.xmltag = 'rtept'
+            for i in rte:
+                yield i
+        yield '</%s>' % (self.xmltag)
     
     def toXml(self, tag):
         """
@@ -687,11 +776,11 @@ class GPXRoute(object):
         Out:
             This object in XML
         """
-        return '<%s>' % (tag) + \
-               "".join(map(lambda x: '<%s>%s</%s>' % (x, getattr(self, x), x), \
-                   filter(lambda x: x not in ['rtepts'] and getattr(self, x) != None, self.__slots__))) + \
-               "".join(map(lambda x: x.toXml("rtept"), self.rtepts)) + \
-               '</%s>' % (tag)
+        self.xmltag = tag
+        output = ""
+        for i in self:
+            output = "%s%s" % (output, i)
+        return output
     
     def finalize(self):
         """
@@ -713,6 +802,17 @@ class GPXTrackSeg(object):
         """
         self.trkpts = []
     
+    def __iter__(self):
+        return self.next()
+    
+    def next(self):
+        yield "<trkseg>"
+        for trkpt in self.trkpts:
+            trkpt.xmltag = "trkpt"
+            for i in trkpt:
+                yield i
+        yield "</trkseg>"
+    
     def toXml(self):
         """
         Return XML representation.
@@ -720,9 +820,10 @@ class GPXTrackSeg(object):
         Out:
             This object in XML
         """
-        return "<trkseg>" + \
-               "".join(map(lambda x: "%s" % x.toXml("trkpt"), self.trkpts)) + \
-               "</trkseg>"
+        output = ""
+        for i in self:
+            output = "%s%s" % (output, i)
+        return output
     
     def finalize(self):
         """
@@ -736,7 +837,7 @@ class GPXTrack(object):
 
     trksegs is a list of GPXTrackSeg objects
     """
-    __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'trksegs']
+    __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'trksegs', 'xmltag']
     
     def __init__(self):
         """
@@ -745,6 +846,18 @@ class GPXTrack(object):
         for i in self.__slots__:
             setattr(self, i, None)
         self.trksegs = []
+    
+    def __iter__(self):
+        return self.next()
+    
+    def next(self):
+        yield '<%s>' % (self.xmltag)
+        for attr in filter(lambda x: x not in ['trksegs', 'xmltag'] and getattr(self, x) != None, self.__slots__):
+               yield '<%s>%s</%s>' % (attr, getattr(self, attr), attr)
+        for trkseg in self.trksegs:
+            for i in trkseg:
+                yield i
+        yield '</%s>' % (self.xmltag)
     
     def toXml(self, tag):
         """
@@ -756,11 +869,11 @@ class GPXTrack(object):
         Out:
             This object in XML
         """
-        return '<%s>' % (tag) + \
-               "".join(map(lambda x: '<%s>%s</%s>' % (x, getattr(self, x), x), \
-                   filter(lambda x: x not in ['trksegs'] and getattr(self, x) != None, self.__slots__))) + \
-               "".join(map(lambda x: x.toXml(), self.trksegs)) + \
-               '</%s>' % (tag)
+        self.xmltag = tag
+        output = ""
+        for i in self:
+            output = "%s%s" % (output, i)
+        return output
     
     def finalize(self):
         """
