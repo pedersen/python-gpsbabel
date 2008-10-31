@@ -351,6 +351,7 @@ class GPSBabel(object):
         self.addAction('infile', gpsType, port, {'get_posn' : None})
         self.captureStdOut()
         ret, gpx = self.execCmd()
+        gpx = gpx.wpts[0] if len(gpx.wpts) > 0 else None
         return gpx
     
     def write(self, fname, fmt, wpt=False, route=False, track=False, parseOutput=False):
