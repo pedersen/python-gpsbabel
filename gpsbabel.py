@@ -1220,7 +1220,7 @@ def validateVersion(gps):
     versionstr = ""
     for line in gpsver:
         if line.strip() != "": versionstr = "%s%s" % (versionstr, line.strip())
-    if versionstr not in ['GPSBabel Version 1.3.5', 'GPSBabel Version 1.3.3']:
+    if versionstr not in ['GPSBabel Version 1.3.5', 'GPSBabel Version 1.3.3', 'GPSBabel Version 1.3.6']:
         raise Exception('Unsupported version of GPSBabel installed. Aborting.')
     
     banner = versionstr
