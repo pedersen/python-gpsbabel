@@ -110,6 +110,129 @@ import xml.sax.handler
 
 from decimal import Decimal
 
+
+# Following code shamelessly copied from http://code.activestate.com/recipes/440554/ as of Thu, Dec 11, 2008.
+import os
+import subprocess
+import errno
+import time
+import sys
+
+PIPE = subprocess.PIPE
+
+if subprocess.mswindows:
+    from win32file import ReadFile, WriteFile
+    from win32pipe import PeekNamedPipe
+    import msvcrt
+else:
+    import select
+    import fcntl
+
+class Popen(subprocess.Popen):
+    def recv(self, maxsize=None):
+        return self._recv('stdout', maxsize)
+    
+    def recv_err(self, maxsize=None):
+        return self._recv('stderr', maxsize)
+
+    def send_recv(self, input='', maxsize=None):
+        return self.send(input), self.recv(maxsize), self.recv_err(maxsize)
+
+    def get_conn_maxsize(self, which, maxsize):
+        if maxsize is None:
+            maxsize = 1024
+        elif maxsize < 1:
+            maxsize = 1
+        return getattr(self, which), maxsize
+    
+    def _close(self, which):
+        getattr(self, which).close()
+        setattr(self, which, None)
+    
+    if subprocess.mswindows:
+        def send(self, input):
+            if not self.stdin:
+                return None
+
+            try:
+                x = msvcrt.get_osfhandle(self.stdin.fileno())
+                (errCode, written) = WriteFile(x, input)
+            except ValueError:
+                return self._close('stdin')
+            except (subprocess.pywintypes.error, Exception), why:
+                if why[0] in (109, errno.ESHUTDOWN):
+                    return self._close('stdin')
+                raise
+
+            return written
+
+        def _recv(self, which, maxsize):
+            conn, maxsize = self.get_conn_maxsize(which, maxsize)
+            if conn is None:
+                return None
+            
+            try:
+                x = msvcrt.get_osfhandle(conn.fileno())
+                (read, nAvail, nMessage) = PeekNamedPipe(x, 0)
+                if maxsize < nAvail:
+                    nAvail = maxsize
+                if nAvail > 0:
+                    (errCode, read) = ReadFile(x, nAvail, None)
+            except ValueError:
+                return self._close(which)
+            except (subprocess.pywintypes.error, Exception), why:
+                if why[0] in (109, errno.ESHUTDOWN):
+                    return self._close(which)
+                raise
+            
+            if self.universal_newlines:
+                read = self._translate_newlines(read)
+            return read
+
+    else:
+        def send(self, input):
+            if not self.stdin:
+                return None
+
+            if not select.select([], [self.stdin], [], 0)[1]:
+                return 0
+
+            try:
+                written = os.write(self.stdin.fileno(), input)
+            except OSError, why:
+                if why[0] == errno.EPIPE: #broken pipe
+                    return self._close('stdin')
+                raise
+
+            return written
+
+        def _recv(self, which, maxsize):
+            conn, maxsize = self.get_conn_maxsize(which, maxsize)
+            if conn is None:
+                return None
+            
+            flags = fcntl.fcntl(conn, fcntl.F_GETFL)
+            if not conn.closed:
+                fcntl.fcntl(conn, fcntl.F_SETFL, flags| os.O_NONBLOCK)
+            
+            try:
+                if not select.select([conn], [], [], 0)[0]:
+                    return ''
+                
+                r = conn.read(maxsize)
+                if not r:
+                    return self._close(which)
+    
+                if self.universal_newlines:
+                    r = self._translate_newlines(r)
+                return r
+            finally:
+                if not conn.closed:
+                    fcntl.fcntl(conn, fcntl.F_SETFL, flags)
+
+message = "Other end disconnected!"
+# End code copy/paste
+
 class GPSBabel(object):
     """
     gpsbabel ( http://www.gpsbabel.org/ ) operates on the concept of a
@@ -199,15 +322,16 @@ class GPSBabel(object):
         #the calling of checkCmd and encCmd for the caller.
         if cmd is None: cmd = self.buildCmd(debug)
         self.__parseOutput = parseOutput
-        self.__gps = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.__gps = Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.__gps.universal_newlines = True
         self.__stdout = []
         self.__stderr = []
         if isinstance(self.stdindata, str):
-            self.__gps.stdin.write(self.stdindata)
+            self.__gps.send(self.stdindata)
         else:
             for i in self.stdindata:
-                self.__gps.stdin.write(i)
-        self.__gps.stdin.close()
+                self.__gps.send(i)
+        self.__gps._close('stdin')
         if wait:
             self.__returncode = None
             while self.__returncode is None: self.checkCmd()
@@ -224,14 +348,13 @@ class GPSBabel(object):
         """
         if self.__gps is None:
             return None
-        time.sleep(0.1)
         self.__returncode = self.__gps.poll()
-        inputready, outputready, exceptready = select.select([self.__gps.stdout, self.__gps.stderr], [], [], 0)
-        for s in inputready:
-            if s == self.__gps.stdout:
-                self.__stdout.extend(self.__gps.stdout.readlines())
-            elif s == self.__gps.stderr:
-                self.__stderr.extend(self.__gps.stderr.readlines())
+        out = self.__gps.recv(65536)
+        if out is not None:
+            self.__stdout.extend(filter(lambda x: len(x.strip()) > 0, out.split("\n")))
+        err = self.__gps.recv_err(65536)
+        if err is not None:
+            self.__stderr.extend(filter(lambda x: len(x.strip()) > 0, err.split("\n")))
         return self.__returncode
     checkConvert = checkCmd
 
@@ -1171,4 +1294,3 @@ charsets = {}
 gps = GPSBabel()
 validateVersion(gps)
 readOpts(gps)
-
