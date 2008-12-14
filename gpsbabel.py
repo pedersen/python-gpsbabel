@@ -329,8 +329,10 @@ class GPSBabel(object):
         if isinstance(self.stdindata, str):
             self.__gps.send(self.stdindata)
         else:
+            out = ''
             for i in self.stdindata:
-                self.__gps.send(i)
+		out = '%s%s' % (out, i)
+            self.__gps.send(out)
         self.__gps._close('stdin')
         if wait:
             self.__returncode = None
