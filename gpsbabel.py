@@ -146,8 +146,9 @@ class Popen(subprocess.Popen):
         return getattr(self, which), maxsize
     
     def _close(self, which):
-        getattr(self, which).close()
-        setattr(self, which, None)
+        if getattr(self, which) is not None:
+            getattr(self, which).close()
+            setattr(self, which, None)
     
     if subprocess.mswindows:
         def send(self, input):
