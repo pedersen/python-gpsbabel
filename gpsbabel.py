@@ -20,7 +20,7 @@ The module properties are as follows:
                   version (e.g.: 1.3.5), or None if it could not found.
     * gps:        An instance of the GPSBabel object, pre-made and ready
                   for use.
-                  
+
 The classes in this module are grouped as follows:
     * GPSBabel: The wrapper around the gpsbabel command line
     * GPXData, GPXWaypoint, GPXRoute, GPXTrackSeg, GPXTreck: These classes
@@ -131,7 +131,7 @@ else:
 class Popen(subprocess.Popen):
     def recv(self, maxsize=None):
         return self._recv('stdout', maxsize)
-    
+
     def recv_err(self, maxsize=None):
         return self._recv('stderr', maxsize)
 
@@ -144,12 +144,12 @@ class Popen(subprocess.Popen):
         elif maxsize < 1:
             maxsize = 1
         return getattr(self, which), maxsize
-    
+
     def _close(self, which):
         if getattr(self, which) is not None:
             getattr(self, which).close()
             setattr(self, which, None)
-    
+
     if subprocess.mswindows:
         def send(self, input):
             if not self.stdin:
@@ -171,7 +171,7 @@ class Popen(subprocess.Popen):
             conn, maxsize = self.get_conn_maxsize(which, maxsize)
             if conn is None:
                 return None
-            
+
             try:
                 x = msvcrt.get_osfhandle(conn.fileno())
                 (read, nAvail, nMessage) = PeekNamedPipe(x, 0)
@@ -185,7 +185,7 @@ class Popen(subprocess.Popen):
                 if why[0] in (109, errno.ESHUTDOWN):
                     return self._close(which)
                 raise
-            
+
             if self.universal_newlines:
                 read = self._translate_newlines(read)
             return read
@@ -211,19 +211,19 @@ class Popen(subprocess.Popen):
             conn, maxsize = self.get_conn_maxsize(which, maxsize)
             if conn is None:
                 return None
-            
+
             flags = fcntl.fcntl(conn, fcntl.F_GETFL)
             if not conn.closed:
                 fcntl.fcntl(conn, fcntl.F_SETFL, flags| os.O_NONBLOCK)
-            
+
             try:
                 if not select.select([conn], [], [], 0)[0]:
                     return ''
-                
+
                 r = conn.read(maxsize)
                 if not r:
                     return self._close(which)
-    
+
                 if self.universal_newlines:
                     r = self._translate_newlines(r)
                 return r
@@ -286,7 +286,7 @@ class GPSBabel(object):
         self.__gps = None
         self.gpsbabel = loc
         self.clearChainOpts()
-    
+
     def execCmd(self, cmd=None, parseOutput=True, wait=True, debug=False):
         """
         Used to run the command that has been built.
@@ -312,7 +312,7 @@ class GPSBabel(object):
             output is either an array of lines which are the raw output (in
             cases where parseOutput is False), or a set of GPXData/etc
             objects (where parseOutput is True)
-        
+
         Exceptions:
             If gpsbabel prints any data on stderr, a RuntimeError will be 
             raised with the contents of stderr
@@ -332,7 +332,7 @@ class GPSBabel(object):
         else:
             out = ''
             for i in self.stdindata:
-		out = '%s%s' % (out, i)
+                out = '%s%s' % (out, i)
             self.__gps.send(out)
         self.__gps._close('stdin')
         if wait:
@@ -378,11 +378,11 @@ class GPSBabel(object):
         self.__gps = None
         return(self.__returncode, output)
     endConvert = endCmd
-    
+
     def addInputFile(self, fname, fmt="gpx", charset="UTF-8"):
         """
         Adds an input file to the processing chain.
-        
+
         In:
             fname:   The name of the file to read
             fmt:     The format of the file to read
@@ -390,11 +390,11 @@ class GPSBabel(object):
         """
         self.addCharset(charset)
         self.addAction('infile', fmt, fname)
-        
+
     def addInputFiles(self, files):
         """
         Add a dictionary of files to the input.
-        
+
         In:
             files: A dictionary. Each key is a filename, and each value is
             a list of up to two entries. If no entries, the default file
@@ -406,11 +406,11 @@ class GPSBabel(object):
             fmt = files[fname][0] if files[fname] is not None and len(files[fname]) >= 1 else "gpx"
             charset = files[fname][1] if files[fname] is not None and len(files[fname]) >= 2 else "UTF-8"
             self.addInputFile(fname, fmt, charset)
-        
+
     def addOutputFiles(self, files):
         """
         Add a dictionary of files to the input.
-        
+
         In:
             files: A dictionary. Each key is a filename, and each value is
             a list of up to two entries. If no entries, the default file
@@ -422,11 +422,11 @@ class GPSBabel(object):
             fmt = files[fname][0] if files[fname] is not None and len(files[fname]) >= 1 else "gpx"
             charset = files[fname][1] if files[fname] is not None and len(files[fname]) >= 2 else "UTF-8"
             self.addOutputFile(fname, fmt, charset)
-    
+
     def addOutputFile(self, fname, fmt="gpx", charset="UTF-8"):
         """
         Adds an output file to the processing chain
-        
+
         In:
             fname:   The name of the file to write
             fmt:     The format of the file to write
@@ -434,11 +434,11 @@ class GPSBabel(object):
         """
         self.addCharset(charset)
         self.addAction('outfile', fmt, fname)
-        
+
     def addFilter(self, fname, opts, charset="UTF-8"):
         """
         Adds an filter to the processing chain
-        
+
         In:
             fname:   The name of the filter to use
             opts:    The options for the filter
@@ -446,16 +446,16 @@ class GPSBabel(object):
         """
         self.addCharset(charset)
         self.addAction('filter', fname, None, opts)
-    
+
     def addCharset(self, charset):
         """
         Add a character set translation to the processing chain.
-        
+
         In:
             charset: The name of the character set to use next.
         """
         self.addAction('charset', charset)
-        
+
     def getCurrentGpsLocation(self, port, gpsType):
         """
         Reads the current location from an attached GPS.
@@ -482,7 +482,7 @@ class GPSBabel(object):
         ret, gpx = self.execCmd()
         gpx = gpx.wpts[0] if len(gpx.wpts) > 0 else None
         return gpx
-    
+
     def write(self, fname, fmt, wpt=False, route=False, track=False, parseOutput=False):
         """
         Performs a conversion where the goal is output. Often used for
@@ -505,7 +505,7 @@ class GPSBabel(object):
             track: Turn on/off track processing.
             parseOutput: Turn on/off parsing of data into GPXData/etc
                 objects
-        
+
         Out:
             The output portion of execCmd, ignoring the return code
         """
@@ -517,7 +517,7 @@ class GPSBabel(object):
         self.addAction('outfile', fmt, fname, {})
         ret, gpx = self.execCmd(parseOutput = parseOutput)
         return gpx
-    
+
     def read(self, fname, fmt, wpt=False, route=False, track=False, parseOutput=True):
         """
         Performs a conversion where the goal is input. Often used for
@@ -535,7 +535,7 @@ class GPSBabel(object):
             track: Turn on/off track processing.
             parseOutput: Turn on/off parsing of data into GPXData/etc
                 objects
-        
+
         Out:
             The output portion of execCmd, ignoring the return code
         """
@@ -549,7 +549,7 @@ class GPSBabel(object):
         self.captureStdOut()
         ret, gpx = self.execCmd(parseOutput = parseOutput)
         return gpx
-    
+
     def setInGpx(self, gpx):
         """
         Convenience method used to set stdindata to gpx data.
@@ -585,19 +585,19 @@ class GPSBabel(object):
                 self.addAction('infile', 'gpx', '-', {})
             except TypeError:
                 raise Exception("Unable to set stdin for gpsbabel. Aborting!")
-    
+
     def captureStdOut(self):
         """
         Add the action to the chain of capturing stdout.
         """
         self.addAction('outfile', 'gpx', '-', {})
-        
+
     # Important methods, though they will not be commonly used, here
-    
+
     def guessFormat(self, fname):
         """
         Very basic, very incomplete, format guessing
-        
+
         In:
             fname: The name of a file
 
@@ -615,13 +615,13 @@ class GPSBabel(object):
     FMT_OUTPUT : Direction, write to GPSBabel
     FMT_FILE   : Output, write to a file
     FMT_DEVICE : Output, write to a GPS device
-    
+
     """
-    
+
     def getFormats(self, direction, source):
         """
         Get list of formats supported for a given direction and media type
-        
+
         In:
             direction : The direction of input. Valid values are
                         FMT_INPUT and FMT_OUTPUT
@@ -632,9 +632,9 @@ class GPSBabel(object):
             if direction == self.FMT_OUTPUT: return ["gpx", "kml"]
             elif direction == self.FMT_INPUT: return ["gpx", "nmea", "sbp"]
         elif source == self.FMT_DEVICE: return ["garmin", "navilink"]
-        
+
         return []
-    
+
     actions = ['charset', 'infile', 'filter', 'outfile']
     """
     Valid actions which GPSBabel can use.
@@ -699,7 +699,7 @@ class GPSBabel(object):
             if not cfound:
                 raise UnknownCharsetException('Error: Unknown character set %s' % fmtfilter)
         self.chain.append([{'action' : action, 'fmtfilter' : fmtfilter, 'fname' : fname}, opts])
-        
+
     def clearChainOpts(self):
         """
         Reset all default values, and clear the action chain
@@ -717,7 +717,7 @@ class GPSBabel(object):
     """
     Provide an alias to clearChainOpts
     """
-    
+
     # The following methods are meant for internal use. You are welcome to use them yourself, but they are going to be extremely uncommon
 
     def buildCmd(self, debug=False):
@@ -759,7 +759,7 @@ class GPSBabel(object):
             elif fmt['action'] == 'charset':
                 cmd.extend(['-c', '%s%s' % (fmt['fmtfilter'], opts)])
         return cmd
-    
+
 class GPXData(object):
     """
     The root container for gpx data objects.
@@ -775,7 +775,7 @@ class GPXData(object):
     trks is a list of GPXTracks
     """
     __slots__ = ['wpts', 'rtes', 'trks']
-    
+
     def __init__(self):
         """
         Constructor
@@ -783,10 +783,10 @@ class GPXData(object):
         self.wpts = []
         self.rtes = []
         self.trks = []
-    
+
     def __iter__(self):
         return self.next()
-    
+
     def next(self):
         yield '<gpx version="1.1" creator="Python GPSBabel">'
         for wpt in self.wpts:
@@ -802,7 +802,7 @@ class GPXData(object):
             for i in trk:
                 yield i
         yield '</gpx>'
-        
+
     def toXml(self):
         """
         Return XML representation.
@@ -814,7 +814,7 @@ class GPXData(object):
         for i in self:
             output = "%s%s" % (output, i)
         return output
-    
+
     def finalize(self):
         """
         Any post load of XML steps are placed here.
@@ -828,23 +828,23 @@ class GPXWaypoint(object):
     __slots__ = ['lat', 'lon', 'ele', 'time', 'magvar', 'geoidheight', 'name', 'cmt', 'desc',
                  'src', 'link', 'sym', 'type', 'fix', 'sat', 'hdop', 'vdop', 'pdop',
                  'ageofdgpsdata', 'dgpsid', 'xmltag']
-    
+
     def __init__(self):
         """
         Constructor
         """
         for i in self.__slots__:
             setattr(self, i, None)
-    
+
     def __iter__(self):
         return self.next()
-    
+
     def next(self):
         yield '<%s lat="%s" lon="%s">' % (self.xmltag, str(self.lat), str(self.lon))
         for attr in filter(lambda x: x not in ['lat', 'lon', 'xmltag'] and getattr(self, x) != None, self.__slots__):
             yield '<%s>%s</%s>' % (attr, getattr(self, attr), attr)
         yield '</%s>' % (self.xmltag)
-        
+
     def toXml(self, tag):
         """
         Return XML representation.
@@ -860,7 +860,7 @@ class GPXWaypoint(object):
         for i in self:
             output = "%s%s" % (output, i)
         return output
-    
+
     def finalize(self):
         """
         Any post load of XML steps are placed here.
@@ -874,7 +874,7 @@ class GPXWaypoint(object):
         for i in ['time']:
             if getattr(self, i) is not None:
                 setattr(self, i, datetime.datetime(*time.strptime(getattr(self, i), '%Y-%m-%dT%H:%M:%SZ')[:6]))
-                
+
 class GPXRoute(object):
     """
     Container for rteType objects.
@@ -882,7 +882,7 @@ class GPXRoute(object):
     Note: rtepts is a list of GPXWaypoint objects
     """
     __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'rtepts', 'xmltag']
-    
+
     def __init__(self):
         """
         Constructor
@@ -890,10 +890,10 @@ class GPXRoute(object):
         for i in self.__slots__:
             setattr(self, i, None)
         self.rtepts = []
-    
+
     def __iter__(self):
         return self.next()
-    
+
     def next(self):
         yield '<%s>' % (self.xmltag)
         for attr in filter(lambda x: x not in ['rtepts', 'xmltag'] and getattr(self, x) != None, self.__slots__):
@@ -903,7 +903,7 @@ class GPXRoute(object):
             for i in rte:
                 yield i
         yield '</%s>' % (self.xmltag)
-    
+
     def toXml(self, tag):
         """
         Return XML representation.
@@ -919,13 +919,13 @@ class GPXRoute(object):
         for i in self:
             output = "%s%s" % (output, i)
         return output
-    
+
     def finalize(self):
         """
         Any post load of XML steps are placed here.
         """
         self.number = int(self.number) if self.number is not None else None
-            
+
 
 class GPXTrackSeg(object):
     """
@@ -934,16 +934,16 @@ class GPXTrackSeg(object):
     trkpts is a list of GPXWaypoints
     """
     __slots__ = ['trkpts']
-    
+
     def __init__(self):
         """
         Constructor
         """
         self.trkpts = []
-    
+
     def __iter__(self):
         return self.next()
-    
+
     def next(self):
         yield "<trkseg>"
         for trkpt in self.trkpts:
@@ -951,7 +951,7 @@ class GPXTrackSeg(object):
             for i in trkpt:
                 yield i
         yield "</trkseg>"
-    
+
     def toXml(self):
         """
         Return XML representation.
@@ -963,7 +963,7 @@ class GPXTrackSeg(object):
         for i in self:
             output = "%s%s" % (output, i)
         return output
-    
+
     def finalize(self):
         """
         Any post load of XML steps are placed here.
@@ -977,7 +977,7 @@ class GPXTrack(object):
     trksegs is a list of GPXTrackSeg objects
     """
     __slots__ = ['name', 'cmt', 'desc', 'src', 'link', 'number', 'type', 'trksegs', 'xmltag']
-    
+
     def __init__(self):
         """
         Constructor
@@ -985,19 +985,19 @@ class GPXTrack(object):
         for i in self.__slots__:
             setattr(self, i, None)
         self.trksegs = []
-    
+
     def __iter__(self):
         return self.next()
-    
+
     def next(self):
         yield '<%s>' % (self.xmltag)
         for attr in filter(lambda x: x not in ['trksegs', 'xmltag'] and getattr(self, x) != None, self.__slots__):
-               yield '<%s>%s</%s>' % (attr, getattr(self, attr), attr)
+            yield '<%s>%s</%s>' % (attr, getattr(self, attr), attr)
         for trkseg in self.trksegs:
             for i in trkseg:
                 yield i
         yield '</%s>' % (self.xmltag)
-    
+
     def toXml(self, tag):
         """
         Return XML representation.
@@ -1013,7 +1013,7 @@ class GPXTrack(object):
         for i in self:
             output = "%s%s" % (output, i)
         return output
-    
+
     def finalize(self):
         """
         Any post load of XML steps are placed here.
@@ -1043,7 +1043,7 @@ def gpxParse(instr):
     xml.sax.parseString(instr, gpxp)
     gpxp.gpx.finalize()
     return gpxp.gpx
-    
+
 class GPXParser(xml.sax.handler.ContentHandler):
     """
     This is a SAX XML parser for GPX files.
@@ -1073,7 +1073,7 @@ class GPXParser(xml.sax.handler.ContentHandler):
         self.read = 0
         self.gpx = GPXData()
         self.objstack = [self.gpx]
-        
+
     def startElement(self, name, attrs):
         """
         Handle the start of a new element.
@@ -1137,7 +1137,7 @@ class GPXParser(xml.sax.handler.ContentHandler):
         elif self.read == 6: # Track Segment Waypoints
             for i in attrs.keys():
                 setattr(self.objstack[-1], i, attrs[i])
-    
+
     def characters(self, ch):
         """
         Append character data to be read.
@@ -1146,7 +1146,7 @@ class GPXParser(xml.sax.handler.ContentHandler):
         #discard it.
         if self.read:
             self.chdata = "%s%s" % (self.chdata, ch)
-    
+
     def endElement(self, name):
         """
         Conclude a given element.
@@ -1225,7 +1225,7 @@ def validateVersion(gps):
         if line.strip() != "": versionstr = "%s%s" % (versionstr, line.strip())
     if versionstr not in ['GPSBabel Version 1.3.5', 'GPSBabel Version 1.3.3', 'GPSBabel Version 1.3.6']:
         raise Exception('Unsupported version of GPSBabel installed. Aborting.')
-    
+
     banner = versionstr
     try:
         version = versionstr.split(" ")[2]
@@ -1235,7 +1235,7 @@ check_exe = validateVersion
 """
 Provide an alias to validateVersion
 """
-    
+
 def readOpts(gpso):
     """
     Read the supported formats/filters/character sets from the

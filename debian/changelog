@@ -1,3 +1,10 @@
+python-gpsbabel (0.8-1) unstable; urgency=low
+
+  * Small API and documentation updates
+  * Cross-platform compatibility updates
+
+ -- Michael J. Pedersen <m.pedersen@icelus.org>  Mon, 15 Dec 2008 00:50:00 -0500
+ 
 python-gpsbabel (0.7-1) unstable; urgency=low
 
   * Added getFormats and guessFormat methods from Rodney Lorrimar

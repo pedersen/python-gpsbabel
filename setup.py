@@ -17,21 +17,17 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 
-# py2exe: http://www.py2exe.org/
-# py2app: http://pypi.python.org/pypi/py2app/
-# easy dmg: http://www.versiontracker.com/dyn/moreinfo/macosx/26358
-
 from distutils.core import setup
 import os, os.path, sys
 
 
 datafiles = []
 setup(name='gpsbabel',
-        version="0.7",
+        version="0.8",
         description='Python wrapper for GPSBabel project',
         author='Michael Pedersen',
         author_email='m.pedersen@icelus.org ',
-        url='http://www.cache901.org/',
+        url='http://www.cache901.org/developers-corner/python-gpsbabel',
         py_modules=['gpsbabel', ]
     )
 

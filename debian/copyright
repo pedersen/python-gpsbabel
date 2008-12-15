@@ -1,7 +1,7 @@
 This package was debianized by marvin <m.pedersen@icelus.org> on
 Sun, 05 Oct 2008 23:42:14 -0400.
 
-It was downloaded from <http://www.cache901.org/>
+It was downloaded from <http://www.cache901.org/developers-corner/python-gpsbabel>
 
 Upstream Author(s):
 
@@ -32,7 +32,3 @@ Public License can be found in `/usr/share/common-licenses/GPL'.
 
 The Debian packaging is (C) 2008, marvin <m.pedersen@icelus.org> and
 is licensed under the GPL, see above.
-
-
-# Please also look if there are files or directories which have a
-# different copyright/license attached and list them here.
