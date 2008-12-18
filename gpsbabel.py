@@ -234,6 +234,24 @@ class Popen(subprocess.Popen):
 message = "Other end disconnected!"
 # End code copy/paste
 
+def which(cmd):
+    syspath = ['.']
+    if sys.platform == 'win32':
+        syspath.extend(os.environ['PATH'].split(';'))
+        for d in syspath:
+            t = os.sep.join([d, cmd])
+            for ext in ['exe', 'bat', 'com']:
+                f = "%s.%s" % (t, ext)
+                if os.path.exists(f) and os.access(f, os.X_OK):
+                    return f
+    else:
+        syspath.extend(os.environ['PATH'].split(':'))
+        for d in syspath:
+            f = os.sep.join([d, cmd])
+            if os.path.exists(f) and os.access(f, os.X_OK):
+                return f
+    return None
+
 class GPSBabel(object):
     """
     gpsbabel ( http://www.gpsbabel.org/ ) operates on the concept of a
@@ -1294,6 +1312,6 @@ banner = None
 ftypes = {}
 filters = {}
 charsets = {}
-gps = GPSBabel()
+gps = GPSBabel(which('gpsbabel'))
 validateVersion(gps)
 readOpts(gps)
