@@ -1312,6 +1312,10 @@ banner = None
 ftypes = {}
 filters = {}
 charsets = {}
+print ",".join(sys.argv)
 gps = GPSBabel(which('gpsbabel'))
-validateVersion(gps)
-readOpts(gps)
+if len(sys.argv) > 0 and sys.argv[0].lower() == 'setup.py':
+    pass
+else:
+    validateVersion(gps)
+    readOpts(gps)
