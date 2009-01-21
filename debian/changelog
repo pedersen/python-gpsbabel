@@ -1,3 +1,9 @@
+python-gpsbabel (0.8.1-1) unstable; urgency=low
+
+  * Small cross-platform compatibility updates
+
+ -- Michael J. Pedersen <m.pedersen@icelus.org>  Tue, 20 Jan 2009 22:05:16 -0500
+
 python-gpsbabel (0.8-1) unstable; urgency=low
 
   * Small API and documentation updates
