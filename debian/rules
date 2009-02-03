@@ -25,27 +25,27 @@ clean:
 install: build
 	dh_testdir
 	dh_testroot
-	dh_clean -k 
+	dh_prep
 	dh_installdirs
 	python setup.py install --root=debian/python-gpsbabel
 	find debian/python-gpsbabel -name '*.pyc' | xargs rm -f
-	dh_installdocs
 
 
 # Build architecture-independent files here.
 binary-indep: build install
-	dh_testdir -i
-	dh_testroot -i
+	dh_testdir
+	dh_testroot
+	dh_installdocs
 	dh_installchangelogs 
-	dh_pycentral -i
+	dh_pycentral
 	dh_strip -ppython-gpsbabel
-	dh_compress -i
-	dh_fixperms -i
-	dh_installdeb -i
-	dh_shlibdeps -i
-	dh_gencontrol -i
-	dh_md5sums -i
-	dh_builddeb -i
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
 
 binary: binary-indep binary-arch
 .PHONY: build clean binary-indep binary-arch binary install configure
