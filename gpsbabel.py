@@ -1314,7 +1314,7 @@ filters = {}
 charsets = {}
 print ",".join(sys.argv)
 gps = GPSBabel(which('gpsbabel'))
-if len(sys.argv) > 0 and sys.argv[0].lower() == 'setup.py':
+if len(sys.argv) > 0 and sys.argv[0].lower().endswidth('setup.py'):
     pass
 else:
     validateVersion(gps)
