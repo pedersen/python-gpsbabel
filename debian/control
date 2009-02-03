@@ -1,5 +1,5 @@
 Source: python-gpsbabel
-Section: libs
+Section: python
 Priority: extra
 Maintainer: Michael J. Pedersen <m.pedersen@icelus.org>
 Build-Depends: debhelper (>= 7), python-central
