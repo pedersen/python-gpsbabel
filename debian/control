@@ -2,7 +2,8 @@ Source: python-gpsbabel
 Section: python
 Priority: extra
 Maintainer: Michael J. Pedersen <m.pedersen@icelus.org>
-Build-Depends: debhelper (>= 7), python-central, python
+Build-Depends: debhelper (>= 7), python
+Build-Depends-Indep: python-central
 Standards-Version: 3.8.0
 Homepage: http://www.cache901.org/
 XS-Python-Version: 2.5

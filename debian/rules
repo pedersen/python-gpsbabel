@@ -3,30 +3,20 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-configure: configure-stamp
-configure-stamp:
-	dh_testdir
-	touch configure-stamp
-
-
-build: build-stamp
-
-build-stamp: configure-stamp  
-	dh_testdir
-	touch $@
-
 clean: 
 	dh_testdir
 	dh_testroot
-	rm -f build-stamp configure-stamp
-	dh_clean 
-	rm -rf debian/cache901
+	dh_clean
+	python setup.py clean
+	$(RM) -r build
+
+build:
+	# nothing to do
 
 install: build
 	dh_testdir
 	dh_testroot
 	dh_prep
-	dh_installdirs
 	python setup.py install --root=debian/python-gpsbabel
 	find debian/python-gpsbabel -name '*.pyc' | xargs rm -f
 
@@ -38,14 +28,12 @@ binary-indep: build install
 	dh_installdocs
 	dh_installchangelogs 
 	dh_pycentral
-	dh_strip -ppython-gpsbabel
 	dh_compress
 	dh_fixperms
 	dh_installdeb
-	dh_shlibdeps
 	dh_gencontrol
 	dh_md5sums
 	dh_builddeb
 
 binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install configure
+.PHONY: build clean binary-indep binary-arch binary install
