@@ -2,8 +2,8 @@ Source: python-gpsbabel
 Section: libs
 Priority: extra
 Maintainer: Michael J. Pedersen <m.pedersen@icelus.org>
-Build-Depends: debhelper (>= 7)
-Standards-Version: 3.7.3
+Build-Depends: debhelper (>= 7), python-central
+Standards-Version: 3.8.0
 Homepage: http://www.cache901.org/
 XS-Python-Version: 2.5
 
@@ -11,5 +11,5 @@ Package: python-gpsbabel
 Architecture: all
 XB-Python-Version: ${python:Versions}
 Depends: python (>= 2.5.0), gpsbabel (=1.3.3-2) | gpsbabel (=1.3.5-0ubuntu1) | gpsbabel (=1.3.5-1.1), ${python:Depends}
-Description: Python-GPSBabel - Python wrapper around GPSBabel
+Description: Python wrapper around GPSBabel
  This is a simple module that wraps around the GPSBabel command.
