@@ -29,6 +29,7 @@ install: build
 	dh_installdirs
 	python setup.py install --root=debian/python-gpsbabel
 	find debian/python-gpsbabel -name '*.pyc' | xargs rm -f
+	dh_installdocs
 
 
 # Build architecture-dependent files here.
