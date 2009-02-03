@@ -32,7 +32,7 @@ install: build
 	dh_installdocs
 
 
-# Build architecture-dependent files here.
+# Build architecture-independent files here.
 binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
