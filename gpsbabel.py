@@ -242,13 +242,13 @@ def which(cmd):
             t = os.sep.join([d, cmd])
             for ext in ['exe', 'bat', 'com']:
                 f = "%s.%s" % (t, ext)
-                if os.path.exists(f) and os.access(f, os.X_OK):
+                if os.path.exists(f) and os.access(f, os.X_OK) and not os.path.isdir(f):
                     return f
     else:
         syspath.extend(os.environ['PATH'].split(':'))
         for d in syspath:
             f = os.sep.join([d, cmd])
-            if os.path.exists(f) and os.access(f, os.X_OK):
+            if os.path.exists(f) and os.access(f, os.X_OK) and not os.path.isdir(f):
                 return f
     return None
 
