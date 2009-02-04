@@ -4,7 +4,7 @@ python-gpsbabel (0.8.2-1) unstable; urgency=low
     built using purely Debian main. Also not needed.
   * Fixed Debian packaging
 
- -- 
+ -- Michael J. Pedersen <m.pedersen@icelus.org>  Tue, 03 Feb 2009 21:57:22 -0500
 
 python-gpsbabel (0.8.1-1) unstable; urgency=low
 
