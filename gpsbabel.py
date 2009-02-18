@@ -845,7 +845,7 @@ class GPXWaypoint(object):
     """
     __slots__ = ['lat', 'lon', 'ele', 'time', 'magvar', 'geoidheight', 'name', 'cmt', 'desc',
                  'src', 'link', 'sym', 'type', 'fix', 'sat', 'hdop', 'vdop', 'pdop',
-                 'ageofdgpsdata', 'dgpsid', 'xmltag']
+                 'ageofdgpsdata', 'dgpsid', 'xmltag', 'speed']
 
     def __init__(self):
         """
@@ -883,7 +883,7 @@ class GPXWaypoint(object):
         """
         Any post load of XML steps are placed here.
         """
-        for i in ['lat', 'lon', 'ele', 'magvar', 'geoidheight', 'hdop', 'vdop', 'pdop', 'ageofdgpsdata']:
+        for i in ['lat', 'lon', 'ele', 'magvar', 'geoidheight', 'hdop', 'vdop', 'pdop', 'ageofdgpsdata', 'speed']:
             if getattr(self, i) is not None:
                 setattr(self, i, Decimal(getattr(self, i)))
         for i in ['sat', 'dgpsid']:
