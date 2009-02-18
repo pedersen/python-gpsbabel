@@ -608,7 +608,7 @@ class GPSBabel(object):
         """
         Add the action to the chain of capturing stdout.
         """
-        self.addAction('outfile', 'gpx', '-', {})
+        self.addAction('outfile', 'gpx,gpxver=1.0', '-', {})
 
     # Important methods, though they will not be commonly used, here
 
