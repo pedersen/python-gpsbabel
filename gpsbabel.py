@@ -885,13 +885,13 @@ class GPXWaypoint(object):
         """
         for i in ['lat', 'lon', 'ele', 'magvar', 'geoidheight', 'hdop', 'vdop', 'pdop', 'ageofdgpsdata', 'speed']:
             if getattr(self, i) is not None:
-                setattr(self, i, Decimal(getattr(self, i).encode('ascii')))
+                setattr(self, i, Decimal(getattr(self, i).encode('ascii').replace('\n', '')))
         for i in ['sat', 'dgpsid']:
             if getattr(self, i) is not None:
-                setattr(self, i, int(getattr(self, i).encode('ascii')))
+                setattr(self, i, int(getattr(self, i).encode('ascii').replace('\n', '')))
         for i in ['time']:
             if getattr(self, i) is not None:
-                setattr(self, i, datetime.datetime(*time.strptime(getattr(self, i).encode('ascii'), '%Y-%m-%dT%H:%M:%SZ')[:6]))
+                setattr(self, i, datetime.datetime(*time.strptime(getattr(self, i).encode('ascii').replace('\n', ''), '%Y-%m-%dT%H:%M:%SZ')[:6]))
 
 class GPXRoute(object):
     """
