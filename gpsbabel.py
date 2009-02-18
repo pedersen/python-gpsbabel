@@ -885,13 +885,13 @@ class GPXWaypoint(object):
         """
         for i in ['lat', 'lon', 'ele', 'magvar', 'geoidheight', 'hdop', 'vdop', 'pdop', 'ageofdgpsdata', 'speed']:
             if getattr(self, i) is not None:
-                setattr(self, i, Decimal(getattr(self, i)))
+                setattr(self, i, Decimal(getattr(self, i).encode('ascii')))
         for i in ['sat', 'dgpsid']:
             if getattr(self, i) is not None:
-                setattr(self, i, int(getattr(self, i)))
+                setattr(self, i, int(getattr(self, i).encode('ascii')))
         for i in ['time']:
             if getattr(self, i) is not None:
-                setattr(self, i, datetime.datetime(*time.strptime(getattr(self, i), '%Y-%m-%dT%H:%M:%SZ')[:6]))
+                setattr(self, i, datetime.datetime(*time.strptime(getattr(self, i).encode('ascii'), '%Y-%m-%dT%H:%M:%SZ')[:6]))
 
 class GPXRoute(object):
     """
@@ -942,7 +942,7 @@ class GPXRoute(object):
         """
         Any post load of XML steps are placed here.
         """
-        self.number = int(self.number) if self.number is not None else None
+        self.number = int(self.number.encode('ascii')) if self.number is not None else None
 
 
 class GPXTrackSeg(object):
