@@ -12,5 +12,5 @@ proj.directory-list = [{'dirloc': loc('.'),
                         'watch_for_changes': True}]
 proj.file-list = [loc('GPSBabelTest.py')]
 proj.file-type = 'shared'
-proj.main-file = loc('gpsbabel.py')
+proj.main-file = loc('gpxerror.py')
 testing.auto-test-file-specs = ('*Test.py',)

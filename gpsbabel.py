@@ -101,9 +101,11 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 import datetime
+import os
 import os.path
 import select
 import subprocess
+import tempfile
 import time
 import xml.sax
 import xml.sax.handler
@@ -388,7 +390,12 @@ class GPSBabel(object):
             return (None, [])
         if self.checkCmd() is None:
             return (None, [])
-        output = self.__stdout
+        if self.stdoutname is not None:
+            output = open(self.stdoutname).readlines()
+            os.unlink(self.stdoutname)
+            self.stdoutname = None
+        else:
+            output = self.__stdout
         if len(self.__stderr) > 0:
             raise RuntimeError("gpsbabel failure: %s" % "\n".join(self.__stderr))
         if self.autoClear: self.clearChainOpts()
@@ -608,7 +615,10 @@ class GPSBabel(object):
         """
         Add the action to the chain of capturing stdout.
         """
-        self.addAction('outfile', 'gpx', '-', {})
+        (fd, name) = tempfile.mkstemp()
+        os.close(fd)
+        self.stdoutname = name
+        self.addAction('outfile', 'gpx', name, {'gpxver':'1.0'})
 
     # Important methods, though they will not be commonly used, here
 
@@ -729,6 +739,7 @@ class GPSBabel(object):
         self.procWpts   = False
         self.smartIcons = True
         self.stdindata  = ""
+        self.stdoutname = None
         self.chain      = []
         if not hasattr(self, "autoClear"): self.autoClear = True
     clear = clearChainOpts
