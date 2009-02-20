@@ -25,7 +25,8 @@ The classes in this module are grouped as follows:
     * GPSBabel: The wrapper around the gpsbabel command line
     * GPXData, GPXWaypoint, GPXRoute, GPXTrackSeg, GPXTreck: These classes
       represent the various components of a GPX file that can/will be
-      captured/used by other tools.
+      captured/used by other tools. View the help from GPXData to see the
+      expected hierarchy of objects and values.
     * *Exception: Custom exception classes that can be raised for specific
       error conditions when trying to run GPSBabel.
     * GPXParser: The class that parses GPX files.
@@ -798,6 +799,23 @@ class GPXData(object):
     a finalize method to allow any postprocessing to occur when loading xml
     data into them (for instance, this could be used to convert floats from
     string to decimal).
+
+    The object hierarchy for the GPXData closely mirrors the XML
+    representation of those objects. As such, when looking at the GPXData
+    object, this is the expected representation of a .gpx/.loc file after
+    it has been parsed:
+
+    GPXData
+        wpts: list of GPXWaypoint
+            GPXWaypoint.__slots__ lists legal attributes
+        rtes: list of GPXRoute
+            GPXRoute.__slots__ lists legal attributes
+                rtepts: list of GPXWaypoint
+        trks: list of GPXTrack
+            GPXTrack.__slots__ lists legal attributes
+                trksegs: list of GPXTrackSeg
+                    GPXTrackSeg.__slots__ lists legal attributes
+                        trkpts: list of GPXWaypoint
 
     wpts is a list of GPXWaypoint
     rtes is a list of GPXRoute
