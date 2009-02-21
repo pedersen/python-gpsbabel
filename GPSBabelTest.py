@@ -35,6 +35,9 @@ class GPSBabelTest(unittest.TestCase):
         
     def testInit(self):
         self.failUnless(self.gps != None)
+        
+    def testGetPositionAwareTypes(self):
+        self.failUnless(self.gps.getPositionAwareTypes() == ('Garmin', 'NMEA'))
     
     def testClearChainOpts(self):
         self.failUnless(self.gps.ini == "")

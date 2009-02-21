@@ -482,6 +482,15 @@ class GPSBabel(object):
         """
         self.addAction('charset', charset)
 
+    def getPositionAwareTypes(self):
+        """
+        Out:
+            A tupe that lists types of GPSes that Python-GPSBabel knows
+            how to request the current location from. The list is formatted
+            to be GUI display friendly.
+        """
+        return ('Garmin', 'NMEA')
+    
     def getCurrentGpsLocation(self, port, gpsType):
         """
         Reads the current location from an attached GPS.
@@ -503,7 +512,7 @@ class GPSBabel(object):
         #The method is simple: Set the attached GPS as the input. Capture
         #the output. Let execCmd parse the resulting output, and return the
         #resulting GPXWaypoint that is given to use by execCmd
-        self.addAction('infile', gpsType, port, {'get_posn' : None})
+        self.addAction('infile', gpsType.lower(), port, {'get_posn' : None})
         self.captureStdOut()
         ret, gpx = self.execCmd()
         gpx = gpx.wpts[0] if len(gpx.wpts) > 0 else None
