@@ -20,6 +20,19 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 from distutils.core import setup
 import os, os.path, sys
 
+if sys.platform.startswith('win'):
+    try:
+        import win32file
+    except ImportError:
+        print "Without win32file, python-gpsbabel will fail on Windows. Aborting."
+        print "Get it at http://sourceforge.net/projects/pywin32/"
+        sys.exit(1)
+    try:
+        import win32pipe
+    except ImportError:
+        print "Without win32pipe, python-gpsbabel will fail on Windows. Aborting."
+        print "Get it at http://sourceforge.net/projects/pywin32/"
+        sys.exit(1)
 
 datafiles = []
 setup(name='gpsbabel',
