@@ -36,7 +36,7 @@ if sys.platform.startswith('win'):
 
 datafiles = []
 setup(name='gpsbabel',
-        version="0.8.2",
+        version="0.9.0",
         description='Python wrapper for GPSBabel project',
         author='Michael Pedersen',
         author_email='m.pedersen@icelus.org ',
