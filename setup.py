@@ -17,7 +17,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
 
-from distutils.core import setup
+from setuptools import setup
 import os, os.path, sys
 
 if sys.platform.startswith('win'):
@@ -36,7 +36,7 @@ if sys.platform.startswith('win'):
 
 datafiles = []
 setup(name='gpsbabel',
-        version="0.9.0",
+        version="0.9.1",
         description='Python wrapper for GPSBabel project',
         author='Michael Pedersen',
         author_email='m.pedersen@icelus.org ',

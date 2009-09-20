@@ -1,0 +1,2 @@
+syntax:glob
+gpsbabel.egg-info/*
