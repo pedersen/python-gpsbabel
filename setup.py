@@ -21,26 +21,17 @@ from setuptools import setup
 import os, os.path, sys
 
 if sys.platform.startswith('win'):
-    try:
-        import win32file
-    except ImportError:
-        print "Without win32file, python-gpsbabel will fail on Windows. Aborting."
-        print "Get it at http://sourceforge.net/projects/pywin32/"
-        sys.exit(1)
-    try:
-        import win32pipe
-    except ImportError:
-        print "Without win32pipe, python-gpsbabel will fail on Windows. Aborting."
-        print "Get it at http://sourceforge.net/projects/pywin32/"
-        sys.exit(1)
+    install_reqs = ['pywin32']
+else:
+    install_reqs = []
 
-datafiles = []
 setup(name='gpsbabel',
-        version="0.9.1",
+        version="1.0.0",
         description='Python wrapper for GPSBabel project',
         author='Michael Pedersen',
         author_email='m.pedersen@icelus.org ',
-        url='http://www.cache901.org/developers-corner/python-gpsbabel',
+        install_requires = install_reqs,
+        url='http://code.google.com/p/python-gpsbabel/',
         py_modules=['gpsbabel', ]
     )
 
