@@ -1,2 +1,3 @@
 syntax:glob
 gpsbabel.egg-info/*
+*.pyc

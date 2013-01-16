@@ -1279,10 +1279,8 @@ def validateVersion(gps):
     versionstr = ""
     for line in gpsver:
         if line.strip() != "": versionstr = "%s%s" % (versionstr, line.strip())
-    major, minor, patch = versionstr.split()[-1].split('.')
-    assert major>='1'
-    assert minor>='3'
-    assert patch>='3'
+    version = versionstr.split()[-1]
+    assert version >= '1.3.3', 'Python GPS Babel only works with GPSBabel versions 1.3.3 and up'
 
     banner = versionstr
     try:

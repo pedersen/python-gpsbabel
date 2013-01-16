@@ -26,7 +26,7 @@ else:
     install_reqs = []
 
 setup(name='gpsbabel',
-        version="1.0.0",
+        version="1.1.0",
         description='Python wrapper for GPSBabel project',
         author='Michael Pedersen',
         author_email='m.pedersen@icelus.org ',
