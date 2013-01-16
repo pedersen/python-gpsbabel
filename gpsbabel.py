@@ -1350,7 +1350,6 @@ banner = None
 ftypes = {}
 filters = {}
 charsets = {}
-print ",".join(sys.argv)
 gps = GPSBabel(which('gpsbabel'))
 if len(sys.argv) > 0 and sys.argv[0].lower().endswith('setup.py'):
     pass
